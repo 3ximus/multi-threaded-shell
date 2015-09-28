@@ -78,6 +78,8 @@ int main(int argc, char **argv, char **envp){
 			/* wait for child process to exit with status 1 */
 			while((child_pid = dequeue(process_queue)) != -1)
 				waitpid(child_pid, &child_status, 0);
+			free(process_queue);
+			free(arg_vector);
 			exit(1);
 		}
 		else{
