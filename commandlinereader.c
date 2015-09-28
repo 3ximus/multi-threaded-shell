@@ -35,19 +35,15 @@ int readLineArguments(char **argVector, int vectorSize)
 
   if (argVector == NULL || vectorSize == 0)
     return 0;
-
   if (getline(&str, &size, stdin) < 0) {
     printf("!!\n");
     return -1;
   }
-   
   /* get the first token */
   token = strtok(str, s);
    
   /* walk through other tokens */
   while( numtokens < vectorSize-1 && token != NULL ) {
-    
-    printf( "encontrou %s\n", token );
     
     argVector[numtokens] = token;
     numtokens ++;
