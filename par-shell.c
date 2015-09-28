@@ -37,7 +37,6 @@ void enqueue(struct queue *queue_list, int pid){
 		queue_list->tail->next = in_node;
 		queue_list->tail = in_node;
 	}
-	
 }
 
 int dequeue(struct queue *queue_list){
@@ -64,7 +63,7 @@ int main(int argc, char **argv, char **envp){
 	int vector_size = 7; /* program name + 5 arguments */
 	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
 	struct queue *process_queue = (struct queue*)malloc(sizeof(struct queue));
-	int child_status;
+	int child_status = EXIT_SUCCESS;
 	int child_pid = 0;
 
 	/* initialize child process queue */
@@ -72,13 +71,13 @@ int main(int argc, char **argv, char **envp){
 	process_queue->tail = NULL;
 
 	while(1){
-		printf("> ");	
+		printf("> ");
 		readLineArguments(arg_vector, vector_size);
 
 		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL){
 			/* wait for child process to exit with status 1 */
-			while(process_queue->head != NULL)
-				printf("Child pid: %d\n", waitpid(dequeue(process_queue), &child_status, WIFEXITED(EXIT_SUCCESS)));
+			while((child_pid = dequeue(process_queue)) != -1)
+				waitpid(child_pid, &child_status, 0);
 			exit(1);
 		}
 		else{
