@@ -1,11 +1,10 @@
-//
-// Command line reader (implementation), version 1
+/*
+// Command line reader (header file), version 2
 // Sistemas Operativos, DEI/IST/ULisboa 2015-16
-//
+*/
 
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 /* 
 Reads up to 'vectorSize' space-separated arguments from the standard input
@@ -16,7 +15,8 @@ is reached
 Arguments: 
  'argVector' should be a vector of char* previously allocated with
  as many entries as 'vectorSize'
- 'vectorSize' is the maximum number of arguments that should be read
+ 'vectorSize' is the size of the above vector. A vector of size N allows up to 
+ N-1 arguments to be read; the entry after the last argument is set to NULL.
 
 Return value:
  The number of arguments that were read, or -1 if some error occurred.
@@ -24,7 +24,6 @@ Return value:
 
 int readLineArguments(char **argVector, int vectorSize)
 {
-  int next_arg = 0;
   int numtokens = 0;
   char *s = " \n\t";
 
@@ -36,16 +35,16 @@ int readLineArguments(char **argVector, int vectorSize)
 
   if (argVector == NULL || vectorSize == 0)
     return 0;
+
   if (getline(&str, &size, stdin) < 0) {
-    printf("!!\n");
     return -1;
   }
+   
   /* get the first token */
   token = strtok(str, s);
    
   /* walk through other tokens */
   while( numtokens < vectorSize-1 && token != NULL ) {
-    
     argVector[numtokens] = token;
     numtokens ++;
     
@@ -55,8 +54,7 @@ int readLineArguments(char **argVector, int vectorSize)
   for (i = numtokens; i<vectorSize; i++) {
     argVector[i] = NULL;
   }
-  
-  //free(str);
+   
   return numtokens;
 }
 

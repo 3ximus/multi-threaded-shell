@@ -22,7 +22,7 @@ int main(int argc, char **argv, char **envp){
 		if (readLineArguments(arg_vector, vector_size) == -1) {
 			perror("[ERROR] Reading command");
 			exit(EXIT_FAILURE);
-		}
+		}	
 		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL){
 			/* wait for child process to exit with status 1 */
 			while(child_count > 0){
@@ -45,6 +45,7 @@ int main(int argc, char **argv, char **envp){
 				/* execute on parent */
 				child_count++;
 		}
+		free(arg_vector);
 	}
 	return 0;
 }
