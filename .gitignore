@@ -1,3 +1,4 @@
 *.o
 par-shell
 fibonacci
+*.c~

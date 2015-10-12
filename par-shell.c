@@ -107,10 +107,11 @@ int main(int argc, char **argv){
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
 			}
-			else
+			else{
 				/* execute on parent */
 				enqueue(q_list, child_pid);
 				child_count++;
+			}
 		}
 	}
 	return 0;
