@@ -76,7 +76,7 @@ struct node *find_pid(struct queue *queue_list, int child_id){
 
 int main(int argc, char **argv){
 	struct queue *q_list = (struct queue*)malloc(sizeof(struct queue));
-	struct node *temp = (struct node *)malloc(sizeof(struct node));
+	struct node *temp = NULL;
 	int vector_size = 7; /* program name + 5 arguments */
 	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
 	int child_pid = 0, child_status, child_count = 0;
@@ -93,10 +93,11 @@ int main(int argc, char **argv){
 				find_pid(q_list, child_pid)->status = child_status;
 				child_count--;
 			}
-			while((temp = dequeue(q_list)) != NULL)
+			while((temp = dequeue(q_list)) != NULL){
 				printf("PID: %d, STATUS: %d\n", temp->process_pid, temp->status);
+				free(temp);
+			}
 			free(arg_vector);
-			free(temp);
 			exit(1);
 		}
 		else{
