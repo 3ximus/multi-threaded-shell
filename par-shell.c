@@ -9,8 +9,12 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
 #include "commandlinereader.h"
+
+/* Data Structures and variables */
+int child_count = 0;
 
 struct node {
 	int process_pid;
@@ -73,21 +77,28 @@ struct node *find_pid(struct queue *queue_list, int child_id){
 	return NULL;
 }
 
+/* Forward declaractions */
+int monitor();
 
 int main(int argc, char **argv){
 	struct queue *q_list = (struct queue*)malloc(sizeof(struct queue));
 	struct node *temp = (struct node *)malloc(sizeof(struct node));
 	int vector_size = 7; /* program name + 5 arguments */
 	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
-	int child_pid = 0, child_status, child_count = 0;
+	int child_pid = 0, child_status;
+	pthread_t monitor_thread_ID;
+
+	/* Create Thread */
+	if (pthread_create(&monitor_thread_ID, NULL, (void *)monitor, NULL) != 0){
+		exit(EXIT_FAILURE);
+	}
 
 	while(1){
 		if (readLineArguments(arg_vector, vector_size) == -1) {
 			perror("[ERROR] Reading command");
 			exit(EXIT_FAILURE);
 		}	
-		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL){
-			/* wait for child process to exit */
+		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL){ /* wait for child process to exit */
 			while(child_count > 0){
 				child_pid = wait(&child_status);
 				find_pid(q_list, child_pid)->status = child_status;
@@ -101,17 +112,24 @@ int main(int argc, char **argv){
 		}
 		else{
 			child_pid = fork();
-			if (child_pid == 0){
-				/* execute on child */
+			if (child_pid == 0){ /* execute on child */
 				if (execv(arg_vector[0], arg_vector) == -1)
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
 			}
-			else
-				/* execute on parent */
+			else /* execute on parent */
 				enqueue(q_list, child_pid);
 				child_count++;
 		}
 	}
 	return 0;
+}
+
+int monitor(){
+	while(1){
+		if(child_count < 1){
+			continue;
+		}
+		else sleep(1);
+	}
 }
