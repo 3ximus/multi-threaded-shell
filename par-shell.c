@@ -118,7 +118,7 @@ int main(int argc, char **argv){
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
 			}
-			else /* execute on parent */
+			else{ /* execute on parent */
 				enqueue(q_list, child_pid);
 				child_count++;
 			}
@@ -130,7 +130,7 @@ int main(int argc, char **argv){
 int monitor(){
 	while(1){
 		if(child_count < 1){
-			continue;
+			return 0;
 		}
 		else sleep(1);
 	}
