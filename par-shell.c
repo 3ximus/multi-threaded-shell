@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "commandlinereader.h"
 
@@ -81,6 +83,10 @@ int main(int argc, char **argv){
 	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
 	int child_pid = 0, child_status, child_count = 0;
 
+	struct timeval timestart;
+	//struct time timeend;
+	//int timedelta;
+
 	while(1){
 		if (readLineArguments(arg_vector, vector_size) == -1) {
 			perror("[ERROR] Reading command");
@@ -91,6 +97,7 @@ int main(int argc, char **argv){
 			while(child_count > 0){
 				child_pid = wait(&child_status);
 				find_pid(q_list, child_pid)->status = child_status;
+				gettimeofday(&timestart, NULL);
 				child_count--;
 			}
 			while((temp = dequeue(q_list)) != NULL)
