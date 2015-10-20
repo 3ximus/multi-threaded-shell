@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "commandlinereader.h"
 
@@ -88,6 +90,11 @@ int main(int argc, char **argv){
 	int child_pid = 0, child_status;
 	pthread_t monitor_thread_ID;
 
+	struct timeval timestart;
+	//struct time timeend;
+	//int timedelta;
+
+
 	/* Create Thread */
 	if (pthread_create(&monitor_thread_ID, NULL, (void *)monitor, NULL) != 0){
 		exit(EXIT_FAILURE);
@@ -102,6 +109,7 @@ int main(int argc, char **argv){
 			while(child_count > 0){
 				child_pid = wait(&child_status);
 				find_pid(q_list, child_pid)->status = child_status;
+				gettimeofday(&timestart, NULL);
 				child_count--;
 			}
 			while((temp = dequeue(q_list)) != NULL){
