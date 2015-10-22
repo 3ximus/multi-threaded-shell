@@ -21,6 +21,8 @@ int child_count = 0;
 struct node {
 	int process_pid;
 	int status;
+	struct timeval start;
+	struct timeval end;
 	struct node *next;
 };
 
@@ -70,8 +72,6 @@ struct node *find_pid(struct queue *queue_list, int child_id){
 		return crawler;
 	}
 
-	while (crawler->next != NULL){
-		crawler = crawler->next;
 		if (child_id == crawler->process_pid){
 			return crawler;
 		}
@@ -108,26 +108,31 @@ int main(int argc, char **argv){
 		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL){ /* wait for child process to exit */
 			while(child_count > 0){
 				child_pid = wait(&child_status);
+				// notify monitor
 				find_pid(q_list, child_pid)->status = child_status;
-				gettimeofday(&timestart, NULL);
 				child_count--;
 			}
-			while((temp = dequeue(q_list)) != NULL){
-				printf("PID: %d, STATUS: %d\n", temp->process_pid, temp->status);
+			// wait for monitor thread to end
+			pthread_join(monitor_thread_ID, NULL);
+
+			while ((temp = dequeue(q_list)) != NULL) {
+				printf("PID: %d, STATUS: %d, DURATION: %d\n", temp->process_pid,
+						temp->status, temp->end.tv_sec - temp->start.tv_sec);
 				free(temp);
 			}
 			free(arg_vector);
 			exit(1);
 		}
-		else{
+		else {
 			child_pid = fork();
 			if (child_pid == 0){ /* execute on child */
 				if (execv(arg_vector[0], arg_vector) == -1)
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
 			}
-			else{ /* execute on parent */
+			else { /* execute on parent */
 				enqueue(q_list, child_pid);
+				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
 				child_count++;
 			}
 		}
@@ -135,9 +140,12 @@ int main(int argc, char **argv){
 	return 0;
 }
 
-int monitor(){
-	while(1){
-		if(child_count < 1){
+int monitor() {
+	while (1) {
+		if (child_count > 0) {
+			// wait for child
+			// when child finishes find child in q_list and
+			// calculate time delta and store it in the corresponding node
 			return 0;
 		}
 		else sleep(1);
