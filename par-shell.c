@@ -12,7 +12,8 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-#include <semaphore.h>
+//#include <semaphore.h>
+#include <errno.h>
 
 #include "commandlinereader.h"
 
@@ -84,10 +85,12 @@ struct node *find_pid(struct queue *queue_list, int child_id){
 }
 
 
+extern int errno;
+
 int child_count = 0;
 int exit_command = 0;
 pthread_mutex_t mutExcSem; /* mutual exclusion semaphore */
-sem_t noMoreChilds;
+sem_t activeChilds;
 struct queue *q_list;
 
 /* Forward declaractions */
@@ -99,15 +102,18 @@ int main(int argc, char **argv){
 	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
 	int child_pid;
 	q_list = (struct queue*)malloc(sizeof(struct queue));
-	if (q_list == NULL) {
-		exit(EXIT_FAILURE);
-	}
 	pthread_t monitor_thread_ID;
 
 	/* Initialize synchronization objects */
-	pthread_mutex_init(&mutExcSem, NULL);
-	sem_init(&noMoreChilds, 0, 0);
-
+	if ((pthread_mutex_init(&mutExcSem, NULL)) != 0) {
+		perror("[ERROR] pthread_mutex_init : ");
+		exit(EXIT_FAILURE);
+	}
+	if ((sem_init(&activeChilds, 0, 0)) == -1) {
+		perror("[ERROR] sem_init : ");
+		exit(EXIT_FAILURE);
+	}
+	
 	/* Create Thread */
 	if (pthread_create(&monitor_thread_ID, NULL, (void *)monitor, NULL) != 0){
 		exit(EXIT_FAILURE);
@@ -120,11 +126,17 @@ int main(int argc, char **argv){
 		}	
 		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL) {
 
+			/* signal exit command */
 			exit_command = 1;
 			/* wait for monitor thread to end */
-			sem_wait(&noMoreChilds);
-			printf("\nnoMoreChilds wait");
-			// pthread_join(monitor_thread_ID, NULL);
+			if ((sem_wait(&activeChilds)) == -1) {
+				perror("[ERROR] sem_wait : ");
+				exit(EXIT_FAILURE);
+			}
+			if ((pthread_join(monitor_thread_ID, NULL)) != 0) {
+				perror("[ERROR] pthread_join : ");
+				exit(EXIT_FAILURE);
+			}
 
 			while ((temp = dequeue(q_list)) != NULL) {
 				printf("PID: %d, STATUS: %d, DURATION: %ld\n", temp->process_pid,
@@ -135,7 +147,7 @@ int main(int argc, char **argv){
 
 			/* terminate sync objects */
 			pthread_mutex_destroy(&mutExcSem);
-			sem_destroy(&noMoreChilds);
+			sem_destroy(&activeChilds);
 
 			exit(EXIT_SUCCESS);
 		}
@@ -177,9 +189,7 @@ int monitor() {
 		}
 		else if (exit_command != 0) {
 			sem_post(&noMoreChilds);
-			printf("\nnoMoreChilds post");
 			pthread_exit(NULL);
-			// return EXIT_SUCCESS;
 		}
 		else {
 			sleep(1);
