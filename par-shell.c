@@ -12,10 +12,12 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
-//#include <semaphore.h>
+#include <semaphore.h>
 #include <errno.h>
 
 #include "commandlinereader.h"
+
+#define VECTOR_SIZE 7 /* program name + 5 arguments */
 
 /* Data Structures and variables */
 struct node {
@@ -98,8 +100,7 @@ int monitor();
 
 int main(int argc, char **argv){
 	struct node *temp = NULL;
-	int vector_size = 7; /* program name + 5 arguments */
-	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
+	
 	int child_pid;
 	q_list = (struct queue*)malloc(sizeof(struct queue));
 	pthread_t monitor_thread_ID;
@@ -120,7 +121,8 @@ int main(int argc, char **argv){
 	}
 
 	while(1){
-		if (readLineArguments(arg_vector, vector_size) == -1) {
+		char **arg_vector = (char **)malloc(VECTOR_SIZE * sizeof(char *));
+		if (readLineArguments(arg_vector, VECTOR_SIZE) == -1) {
 			perror("[ERROR] Reading command");
 			exit(EXIT_FAILURE);
 		}	
@@ -143,12 +145,13 @@ int main(int argc, char **argv){
 						temp->status, temp->end.tv_sec - temp->start.tv_sec);
 				free(temp);
 			}
-			free(arg_vector);
-
+			
 			/* terminate sync objects */
 			pthread_mutex_destroy(&mutExcSem);
 			sem_destroy(&activeChilds);
 
+			free(q_list);
+			free(arg_vector);
 			exit(EXIT_SUCCESS);
 		}
 		else {
@@ -166,9 +169,12 @@ int main(int argc, char **argv){
 				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
 				child_count++;
 				pthread_mutex_unlock(&mutExcSem);
+				
 			}
 		}
+		free(arg_vector);
 	}
+	free(q_list);
 	return 0;
 }
 
@@ -188,7 +194,7 @@ int monitor() {
 			pthread_mutex_unlock(&mutExcSem);
 		}
 		else if (exit_command != 0) {
-			sem_post(&noMoreChilds);
+			sem_post(&activeChilds);
 			pthread_exit(NULL);
 		}
 		else {
