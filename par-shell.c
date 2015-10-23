@@ -12,12 +12,11 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include <semaphore.h>
 
 #include "commandlinereader.h"
 
 /* Data Structures and variables */
-int child_count = 0;
-
 struct node {
 	int process_pid;
 	int status;
@@ -66,12 +65,17 @@ struct node *dequeue(struct queue *queue_list){
 
 struct node *find_pid(struct queue *queue_list, int child_id){
 	struct node *crawler = NULL;
+	
+	if (queue_list == NULL) {
+		return NULL;
+	}
 	crawler = queue_list->head;
 
 	if (child_id == crawler->process_pid){
 		return crawler;
 	}
-
+	while (crawler->next != NULL) {
+		crawler = crawler->next;
 		if (child_id == crawler->process_pid){
 			return crawler;
 		}
@@ -79,21 +83,30 @@ struct node *find_pid(struct queue *queue_list, int child_id){
 	return NULL;
 }
 
+
+int child_count = 0;
+int exit_command = 0;
+pthread_mutex_t mutExcSem; /* mutual exclusion semaphore */
+sem_t noMoreChilds;
+struct queue *q_list;
+
 /* Forward declaractions */
 int monitor();
 
 int main(int argc, char **argv){
-	struct queue *q_list = (struct queue*)malloc(sizeof(struct queue));
 	struct node *temp = NULL;
 	int vector_size = 7; /* program name + 5 arguments */
 	char **arg_vector = (char **)malloc(vector_size * sizeof(char *));
-	int child_pid = 0, child_status;
+	int child_pid;
+	q_list = (struct queue*)malloc(sizeof(struct queue));
+	if (q_list == NULL) {
+		exit(EXIT_FAILURE);
+	}
 	pthread_t monitor_thread_ID;
 
-	struct timeval timestart;
-	//struct time timeend;
-	//int timedelta;
-
+	/* Initialize synchronization objects */
+	pthread_mutex_init(&mutExcSem, NULL);
+	sem_init(&noMoreChilds, 0, 0);
 
 	/* Create Thread */
 	if (pthread_create(&monitor_thread_ID, NULL, (void *)monitor, NULL) != 0){
@@ -105,23 +118,26 @@ int main(int argc, char **argv){
 			perror("[ERROR] Reading command");
 			exit(EXIT_FAILURE);
 		}	
-		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL){ /* wait for child process to exit */
-			while(child_count > 0){
-				child_pid = wait(&child_status);
-				// notify monitor
-				find_pid(q_list, child_pid)->status = child_status;
-				child_count--;
-			}
-			// wait for monitor thread to end
-			pthread_join(monitor_thread_ID, NULL);
+		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL) {
+
+			exit_command = 1;
+			/* wait for monitor thread to end */
+			sem_wait(&noMoreChilds);
+			printf("\nnoMoreChilds wait");
+			// pthread_join(monitor_thread_ID, NULL);
 
 			while ((temp = dequeue(q_list)) != NULL) {
-				printf("PID: %d, STATUS: %d, DURATION: %d\n", temp->process_pid,
+				printf("PID: %d, STATUS: %d, DURATION: %ld\n", temp->process_pid,
 						temp->status, temp->end.tv_sec - temp->start.tv_sec);
 				free(temp);
 			}
 			free(arg_vector);
-			exit(1);
+
+			/* terminate sync objects */
+			pthread_mutex_destroy(&mutExcSem);
+			sem_destroy(&noMoreChilds);
+
+			exit(EXIT_SUCCESS);
 		}
 		else {
 			child_pid = fork();
@@ -131,9 +147,13 @@ int main(int argc, char **argv){
 					exit(EXIT_FAILURE);
 			}
 			else { /* execute on parent */
+				/* save child process pid in the queue along with starttime
+				 * and increment child counter */
+				pthread_mutex_lock(&mutExcSem);
 				enqueue(q_list, child_pid);
 				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
 				child_count++;
+				pthread_mutex_unlock(&mutExcSem);
 			}
 		}
 	}
@@ -141,13 +161,28 @@ int main(int argc, char **argv){
 }
 
 int monitor() {
+	int child_pid;
+	int child_status;
+	struct node * temp = NULL;
+
 	while (1) {
 		if (child_count > 0) {
-			// wait for child
-			// when child finishes find child in q_list and
-			// calculate time delta and store it in the corresponding node
-			return 0;
+			pthread_mutex_lock(&mutExcSem);
+			child_pid = wait(&child_status);
+			temp = find_pid(q_list, child_pid);
+			temp->status = child_status;
+			gettimeofday(&(temp->end), NULL);
+			--child_count;
+			pthread_mutex_unlock(&mutExcSem);
 		}
-		else sleep(1);
+		else if (exit_command != 0) {
+			sem_post(&noMoreChilds);
+			printf("\nnoMoreChilds post");
+			pthread_exit(NULL);
+			// return EXIT_SUCCESS;
+		}
+		else {
+			sleep(1);
+		}
 	}
 }
