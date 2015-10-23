@@ -141,7 +141,7 @@ int main(int argc, char **argv){
 			}
 
 			while ((temp = dequeue(q_list)) != NULL) {
-				printf("PID: %d, STATUS: %d, DURATION: %ld\n", temp->process_pid,
+				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
 						temp->status, temp->end.tv_sec - temp->start.tv_sec);
 				free(temp);
 			}
