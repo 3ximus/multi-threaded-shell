@@ -16,79 +16,10 @@
 #include <errno.h>
 
 #include "commandlinereader.h"
+#include "queue.h"
 
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
 #define MAXPAR 2
-
-/* Data Structures and variables */
-struct node {
-	int process_pid;
-	int status;
-	struct timeval start;
-	struct timeval end;
-	struct node *next;
-};
-
-struct queue {
-	struct node *head;
-	struct node *tail;
-};
-
-void enqueue(struct queue *queue_list, int pid){
-	if (queue_list == NULL)
-		return;
-
-	struct node *in_node = (struct node*)malloc(sizeof(struct node));
-	in_node->process_pid = pid;
-
-	if (queue_list->head == NULL)
-		queue_list->head = in_node;
-	if (queue_list->tail == NULL)
-		queue_list->tail = in_node;
-	else{
-		queue_list->tail->next = in_node;
-		queue_list->tail = in_node;
-	}
-}
-
-struct node *dequeue(struct queue *queue_list){
-	struct node *out_node = NULL;
-	if (queue_list == NULL || queue_list->head == NULL)
-		return NULL;
-	out_node = queue_list->head;
-	if (queue_list->head->next != NULL){
-		queue_list->head = out_node->next;
-	}
-	else{
-		/* queue ended, no more nodes */
-		queue_list->head = NULL;
-		queue_list->tail = NULL;
-	}
-	return out_node;
-}
-
-struct node *find_pid(struct queue *queue_list, int child_id){
-	struct node *crawler = NULL;
-	
-	if (queue_list == NULL) {
-		return NULL;
-	}
-	crawler = queue_list->head;
-
-	if (child_id == crawler->process_pid){
-		return crawler;
-	}
-	while (crawler->next != NULL) {
-		crawler = crawler->next;
-		if (child_id == crawler->process_pid){
-			return crawler;
-		}
-	}
-	return NULL;
-}
-
-
-extern int errno;
 
 int child_count = 0;
 int exit_command = 0;
@@ -110,35 +41,36 @@ int main(int argc, char **argv){
 
 	/* Initialize synchronization objects */
 	if ((pthread_mutex_init(&mutExcSem, NULL)) != 0) {
-		perror("[ERROR] pthread_mutex_init : ");
+		perror("[ERROR] pthread_mutex_init");
 		exit(EXIT_FAILURE);
 	}
 	if ((sem_init(&activeChilds, 0, 0)) == -1) {
-		perror("[ERROR] sem_init : ");
+		perror("[ERROR] sem_init");
 		exit(EXIT_FAILURE);
 	}
 	if ((sem_init(&noChilds, 0, 0)) == -1) {
-		perror("[ERROR] sem_init : ");
+		perror("[ERROR] sem_init");
 		exit(EXIT_FAILURE);
 	}
 	if ((sem_init(&maxChilds, 0, 0)) == -1) {
-		perror("[ERROR] sem_init : ");
+		perror("[ERROR] sem_init");
 		exit(EXIT_FAILURE);
 	}
 	
 	/* Create Thread */
 	if (pthread_create(&monitor_thread_ID, NULL, (void *)monitor, NULL) != 0){
+		perror("[ERROR] creating thread");
 		exit(EXIT_FAILURE);
 	}
 
 	while(1){
+		int numArgs;
 		char **arg_vector = (char **)malloc(VECTOR_SIZE * sizeof(char *));
-		if (readLineArguments(arg_vector, VECTOR_SIZE) == -1) {
-			perror("[ERROR] Reading command");
-			exit(EXIT_FAILURE);
-		}	
-		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL) {
+		numArgs = readLineArguments(arg_vector, VECTOR_SIZE);
+		if (numArgs == 0)
+			continue;
 
+		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL) {
 			/* signal exit command */
 			exit_command = 1;
 			/* wait for monitor thread to end */
