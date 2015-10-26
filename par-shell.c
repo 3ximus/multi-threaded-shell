@@ -18,6 +18,7 @@
 #include "commandlinereader.h"
 
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
+#define MAXPAR 2
 
 /* Data Structures and variables */
 struct node {
@@ -93,6 +94,8 @@ int child_count = 0;
 int exit_command = 0;
 pthread_mutex_t mutExcSem; /* mutual exclusion semaphore */
 sem_t activeChilds;
+sem_t noChilds;
+sem_t maxChilds;
 struct queue *q_list;
 
 /* Forward declaractions */
@@ -111,6 +114,14 @@ int main(int argc, char **argv){
 		exit(EXIT_FAILURE);
 	}
 	if ((sem_init(&activeChilds, 0, 0)) == -1) {
+		perror("[ERROR] sem_init : ");
+		exit(EXIT_FAILURE);
+	}
+	if ((sem_init(&noChilds, 0, 0)) == -1) {
+		perror("[ERROR] sem_init : ");
+		exit(EXIT_FAILURE);
+	}
+	if ((sem_init(&maxChilds, 0, 0)) == -1) {
 		perror("[ERROR] sem_init : ");
 		exit(EXIT_FAILURE);
 	}
@@ -149,17 +160,26 @@ int main(int argc, char **argv){
 			/* terminate sync objects */
 			pthread_mutex_destroy(&mutExcSem);
 			sem_destroy(&activeChilds);
+			sem_destroy(&noChilds);
+			sem_destroy(&maxChilds);
 
 			free(q_list);
 			free(arg_vector);
 			exit(EXIT_SUCCESS);
 		}
 		else {
+      pthread_mutex_lock(&mutExcSem);
+      if (child_count >= MAXPAR) {
+        pthread_mutex_unlock(&mutExcSem);
+        sem_wait(&maxChilds);
+      }
+      pthread_mutex_unlock(&mutExcSem);
 			child_pid = fork();
 			if (child_pid == 0){ /* execute on child */
-				if (execv(arg_vector[0], arg_vector) == -1)
+				if (execv(arg_vector[0], arg_vector) == -1) {
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
+        }
 			}
 			else { /* execute on parent */
 				/* save child process pid in the queue along with starttime
@@ -168,6 +188,7 @@ int main(int argc, char **argv){
 				enqueue(q_list, child_pid);
 				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
 				child_count++;
+        sem_post(&noChilds);
 				pthread_mutex_unlock(&mutExcSem);
 				
 			}
@@ -184,21 +205,22 @@ int monitor() {
 	struct node * temp = NULL;
 
 	while (1) {
-		if (child_count > 0) {
-			pthread_mutex_lock(&mutExcSem);
-			child_pid = wait(&child_status);
-			temp = find_pid(q_list, child_pid);
-			temp->status = child_status;
-			gettimeofday(&(temp->end), NULL);
-			--child_count;
-			pthread_mutex_unlock(&mutExcSem);
-		}
-		else if (exit_command != 0) {
+    if (child_count > 0) {
+      pthread_mutex_lock(&mutExcSem);
+      child_pid = wait(&child_status);
+      temp = find_pid(q_list, child_pid);
+      temp->status = child_status;
+      gettimeofday(&(temp->end), NULL);
+      --child_count;
+      if (child_count < MAXPAR) {
+        sem_post(&maxChilds);
+      }
+      pthread_mutex_unlock(&mutExcSem);
+      sem_wait(&noChilds);
+    }
+    else if (exit_command != 0) {
 			sem_post(&activeChilds);
 			pthread_exit(NULL);
-		}
-		else {
-			sleep(1);
 		}
 	}
 }
