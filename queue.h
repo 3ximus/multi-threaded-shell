@@ -1,18 +1,29 @@
-/* Queue list defenition */
+/* 
+ * Queue list defenition and implementation
+ */
 
-struct node {
-	int process_pid;
-	int status;
-	struct timeval start;
-	struct timeval end;
-	struct node *next;
-};
+#ifndef QUEUE_H
+#define QUEUE_H
 
-struct queue {
-	struct node *head;
-	struct node *tail;
-};
+/* List Node */
+typedef struct node {
+	int process_pid; /* PID */
+	int status; /* Process exit status */
+	struct timeval start; /* Process start time */
+	struct timeval end; /* Process end time */
+	struct node *next; /* Pointer to next node */
+}node_l;
 
+/* Queue (FIFO) */
+typedef struct queue {
+	struct node *head; /* List top */
+	struct node *tail; /* List bottom */
+}queue_l;
+
+/* ----------------------------------------------------------
+ * Add a new node to the queue with given pid
+ * Other fields Uninitialized
+ * ---------------------------------------------------------- */
 void enqueue(struct queue *queue_list, int pid){
 	if (queue_list == NULL)
 		return;
@@ -29,6 +40,9 @@ void enqueue(struct queue *queue_list, int pid){
 	}
 }
 
+/* ----------------------------------------------------------
+ * Remove element from list, must be freed
+ * ---------------------------------------------------------- */
 struct node *dequeue(struct queue *queue_list){
 	struct node *out_node = NULL;
 	if (queue_list == NULL || queue_list->head == NULL)
@@ -37,17 +51,19 @@ struct node *dequeue(struct queue *queue_list){
 	if (queue_list->head->next != NULL){
 		queue_list->head = out_node->next;
 	}
-	else{
-		/* queue ended, no more nodes */
+	else{ /* queue ended, no more nodes */
 		queue_list->head = NULL;
 		queue_list->tail = NULL;
 	}
 	return out_node;
 }
 
+/* ----------------------------------------------------------
+ * Find a node with given PID
+ * Returns pointer to list node if found
+ * ---------------------------------------------------------- */
 struct node *find_pid(struct queue *queue_list, int child_id){
 	struct node *crawler = NULL;
-	
 	if (queue_list == NULL)
 		return NULL;
 	crawler = queue_list->head;
@@ -62,3 +78,5 @@ struct node *find_pid(struct queue *queue_list, int child_id){
 	}
 	return NULL;
 }
+
+#endif

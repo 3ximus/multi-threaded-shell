@@ -1,8 +1,11 @@
-//
-// Shell Paralela
-// Sistemas Operativos 2015
-//
 
+/* ----------------------------------------------------------
+ * Shell Paralela
+ * Grupo 82
+ * Sistemas Operativos 2015
+ ---------------------------------------------------------- */
+
+/* System Includes */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +18,12 @@
 #include <semaphore.h>
 #include <errno.h>
 
+/* Our Includes */
 #include "commandlinereader.h"
 #include "queue.h"
+#include "mutex.h"
 
+/* Defines */
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
 #define MAXPAR 2
 
@@ -27,16 +33,16 @@ pthread_mutex_t mutExcSem; /* mutual exclusion semaphore */
 sem_t activeChilds;
 sem_t noChilds;
 sem_t maxChilds;
-struct queue *q_list;
+queue_l *q_list;
 
-/* Forward declaractions */
+/* Forward declaraction */
 int monitor();
 
 int main(int argc, char **argv){
-	struct node *temp = NULL;
+	node_l *temp = NULL;
 	
 	int child_pid;
-	q_list = (struct queue*)malloc(sizeof(struct queue));
+	q_list = (queue_l*)malloc(sizeof(queue_l));
 	pthread_t monitor_thread_ID;
 
 	/* Initialize synchronization objects */
@@ -131,10 +137,13 @@ int main(int argc, char **argv){
 	return 0;
 }
 
+/* ----------------------------------------------------------
+ * Monitor Thread
+ * ---------------------------------------------------------- */
 int monitor() {
 	int child_pid;
 	int child_status;
-	struct node * temp = NULL;
+	node_l * temp = NULL;
 
 	while (1) {
     if (child_count > 0) {
