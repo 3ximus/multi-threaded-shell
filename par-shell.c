@@ -21,7 +21,6 @@
 /* Our Includes */
 #include "commandlinereader.h"
 #include "queue.h"
-#include "mutex.h"
 #include "err_check.h"
 
 /* Defines */
@@ -46,27 +45,24 @@ int main(int argc, char **argv){
 	pthread_t monitor_thread;
 
 	/* Initialize synchronization objects */
-  pthread_mutex_init_(&mutex, NULL);
-  sem_init_(&newChild, 0, 0);
-  sem_init_(&maxChilds, 0, 0);
+	pthread_mutex_init_(&mutex, NULL);
+	sem_init_(&newChild, 0, 0);
+	sem_init_(&maxChilds, 0, 0);
 
 	/* Create Thread */
-  pthread_create_(&monitor_thread, NULL, (void *) monitor, NULL);
-
+	pthread_create_(&monitor_thread, NULL, (void *) monitor, NULL);
 	while(1){
 		int numArgs;
 		char **arg_vector = (char **)malloc(VECTOR_SIZE * sizeof(char *));
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE);
 		if (numArgs == 0)
 			continue;
-
 		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL) {
-
 			/* signal exit command */
 			exit_command = 1;
 
 			/* wait for monitor thread to end */
-      pthread_join_(monitor_thread, NULL);
+			pthread_join_(monitor_thread, NULL);
 
 			while ((temp = dequeue(q_list)) != NULL) {
 				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
@@ -75,7 +71,7 @@ int main(int argc, char **argv){
 			}
 			
 			/* terminate sync objects */
-			pthread_mutex_destroy_(&mutex_data);
+			pthread_mutex_destroy_(&mutex);
 			sem_destroy_(&newChild);
 			sem_destroy_(&maxChilds);
 
@@ -87,12 +83,10 @@ int main(int argc, char **argv){
 			pthread_mutex_lock_(&mutex);
 			if (child_count >= MAXPAR) {
 				pthread_mutex_unlock_(&mutex);
-
-        /* maximum running children reached */
+				/* maximum running children reached */
 				sem_wait(&maxChilds);
 			}
 			pthread_mutex_unlock_(&mutex);
-			
 			child_pid = fork();
 			if (child_pid == 0){ /* execute on child */
 				if (execv(arg_vector[0], arg_vector) == -1) {
@@ -107,7 +101,7 @@ int main(int argc, char **argv){
 				enqueue(q_list, child_pid);
 				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
 				child_count++;
-				sem_post(&newChild);
+				/*sem_post(&newChild);*/
 				pthread_mutex_unlock_(&mutex);
 				
 			}
@@ -127,29 +121,29 @@ int monitor(void) {
 	node_l * temp = NULL;
 
 	while (1) {
-    pthread_mutex_lock_(&mutex);
-    if (child_count > 0) {
+		if (child_count > 0) {
+			pthread_mutex_lock_(&mutex);
+			/* wait for child process to exit, save its status and endtime
+			* and decrement child counter */
+			child_pid = wait(&child_status);
+			temp = find_pid(q_list, child_pid);
+			temp->status = child_status;
+			gettimeofday(&(temp->end), NULL);
+			--child_count;
 
-      /* wait for child process to exit, save its status and endtime
-       * and decrement child counter */
-      child_pid = wait(&child_status);
-      temp = find_pid(q_list, child_pid);
-      temp->status = child_status;
-      gettimeofday(&(temp->end), NULL);
-      --child_count;
-
-      if (child_count < MAXPAR) {
-        /* signal a slot for new child if one is waiting */
-        sem_post(&maxChilds);
-      }
-    }
-    else if (exit_command != 0) {
+			if (child_count < MAXPAR) {
+				/* signal a slot for new child if one is waiting */
+				sem_post(&maxChilds);
+			}
+			pthread_mutex_unlock_(&mutex);
+		}
+		else if (exit_command != 0) {
 			// sem_post(&activeChilds);
 			pthread_exit(NULL);
 		}
-    else {
-      sem_wait(&newChild);
-    }
-  pthread_mutex_unlock_(&mutex);
+		else
+			sleep(1);   /* must be removed */
+			/*sem_wait(&newChild);*/
+		
 	}
 }
