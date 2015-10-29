@@ -29,7 +29,6 @@
 
 int child_count = 0;
 int exit_command = 0;
-pthread_mutex_t mutExcSem; /* mutual exclusion semaphore */
 sem_t activeChilds;
 sem_t noChilds;
 sem_t maxChilds;
@@ -46,7 +45,7 @@ int main(int argc, char **argv){
 	pthread_t monitor_thread_ID;
 
 	/* Initialize synchronization objects */
-	if ((pthread_mutex_init(&mutExcSem, NULL)) != 0) {
+	if ((pthread_mutex_init(&mutex_data, NULL)) != 0) {
 		perror("[ERROR] pthread_mutex_init");
 		exit(EXIT_FAILURE);
 	}
@@ -96,7 +95,7 @@ int main(int argc, char **argv){
 			}
 			
 			/* terminate sync objects */
-			pthread_mutex_destroy(&mutExcSem);
+			pthread_mutex_destroy(&mutex_data);
 			sem_destroy(&activeChilds);
 			sem_destroy(&noChilds);
 			sem_destroy(&maxChilds);
@@ -106,28 +105,29 @@ int main(int argc, char **argv){
 			exit(EXIT_SUCCESS);
 		}
 		else {
-      pthread_mutex_lock(&mutExcSem);
-      if (child_count >= MAXPAR) {
-        pthread_mutex_unlock(&mutExcSem);
-        sem_wait(&maxChilds);
-      }
-      pthread_mutex_unlock(&mutExcSem);
+			mutex_lock();
+			if (child_count >= MAXPAR) {
+				mutex_unlock();
+				sem_wait(&maxChilds);
+			}
+			mutex_unlock();
+			
 			child_pid = fork();
 			if (child_pid == 0){ /* execute on child */
 				if (execv(arg_vector[0], arg_vector) == -1) {
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
-        }
+        		}
 			}
 			else { /* execute on parent */
 				/* save child process pid in the queue along with starttime
 				 * and increment child counter */
-				pthread_mutex_lock(&mutExcSem);
+				mutex_lock();
 				enqueue(q_list, child_pid);
 				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
 				child_count++;
-        sem_post(&noChilds);
-				pthread_mutex_unlock(&mutExcSem);
+				sem_post(&noChilds);
+				mutex_unlock();
 				
 			}
 		}
@@ -147,7 +147,7 @@ int monitor() {
 
 	while (1) {
     if (child_count > 0) {
-      pthread_mutex_lock(&mutExcSem);
+      mutex_lock();
       child_pid = wait(&child_status);
       temp = find_pid(q_list, child_pid);
       temp->status = child_status;
@@ -156,7 +156,7 @@ int monitor() {
       if (child_count < MAXPAR) {
         sem_post(&maxChilds);
       }
-      pthread_mutex_unlock(&mutExcSem);
+      mutex_unlock();
       sem_wait(&noChilds);
     }
     else if (exit_command != 0) {
