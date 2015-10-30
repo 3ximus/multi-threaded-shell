@@ -14,7 +14,6 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <time.h>
-#include <sys/time.h>
 #include <semaphore.h>
 #include <errno.h>
 
@@ -44,6 +43,7 @@ int main(int argc, char **argv){
   char buffer[BUFFER_SIZE];
   int numArgs;
   char *arg_vector[VECTOR_SIZE];
+  time_t start_time;
 	
 	int child_pid;
 	pthread_t monitor_thread;
@@ -74,7 +74,7 @@ int main(int argc, char **argv){
       /* imprime lista e liberta a memória dos elementos da lista*/
 			while ((temp = dequeue(q_list)) != NULL) {
 				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\t%ld MICROSECONDS\n", temp->process_pid,
-						temp->status, temp->end.tv_sec - temp->start.tv_sec, temp->end.tv_usec - temp->start.tv_usec);
+						temp->status, temp->end - temp->start, temp->end - temp->start);
 				free(temp);
 			}
 			
@@ -105,14 +105,12 @@ int main(int argc, char **argv){
        * Child counter is incremented.
        * The semaphore controlling maximum parallel children is decremented.
        */
-      // guardar o tempo aqui
+      time(&start_time); /* get start time of child process */
       pthread_mutex_lock_(&mutex);
-      enqueue(q_list, child_pid); // enviar logo o tempo
-      // gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
+      enqueue(q_list, child_pid, start_time);
       child_count++;
       pthread_mutex_unlock_(&mutex);
-      sem_post_(&noChilds); // fazer sempre post
-      
+      sem_post_(&noChilds);
     }
 	}
 	free(q_list);
