@@ -130,24 +130,23 @@ int monitor(void) {
 	node_l * temp = NULL;
 
 	while (1) {
-    // esperar por filhos aqui
+    sem_wait_(&noChilds);
+
+    if (exit_command != 0) {
+			pthread_exit(NULL);
+    }
+
     pthread_mutex_lock_(&mutex);
     if (child_count > 0) {
       pthread_mutex_unlock_(&mutex);
       child_pid = wait(&child_status);
+      pthread_mutex_lock_(&mutex);
       temp = find_pid(q_list, child_pid);
       temp->status = child_status;
-      gettimeofday(&(temp->end), NULL);
+      time(temp->end);
       --child_count;
+      pthread_mutex_unlock_(&mutex);
       sem_post_(&maxChilds);
-    }
-    else if (exit_command != 0) {
-      pthread_mutex_unlock_(&mutex);
-			pthread_exit(NULL);
-		}
-    else {
-      pthread_mutex_unlock_(&mutex);
-      sem_wait_(&noChilds);
     }
 	}
 }
