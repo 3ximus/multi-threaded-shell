@@ -9,8 +9,8 @@
 typedef struct node {
 	int process_pid; /* PID */
 	int status; /* Process exit status */
-	struct timeval start; /* Process start time */
-	struct timeval end; /* Process end time */
+	time_t start; /* Process start time */
+	time_t end; /* Process end time */
 	struct node *next; /* Pointer to next node */
 }node_l;
 
@@ -32,11 +32,12 @@ queue_l *new_queue(){
  * Add a new node to the queue with given pid
  * Other fields Uninitialized
  * ---------------------------------------------------------- */
-void enqueue(struct queue *queue_list, int pid){
+void enqueue(struct queue *queue_list, int pid, time_t start_time){
 	if (queue_list == NULL)
 		return;
 	struct node *in_node = (struct node*)malloc(sizeof(struct node));
 	in_node->process_pid = pid;
+	in_node->start = start_time;
 	in_node->next = NULL;
 
 	if (queue_list->head == NULL)
