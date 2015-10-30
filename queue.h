@@ -16,8 +16,8 @@ typedef struct node {
 
 /* Queue (FIFO) */
 typedef struct queue {
-	struct node *head; /* List top */
-	struct node *tail; /* List bottom */
+	struct node *head = NULL; /* List top */
+	struct node *tail = NULL; /* List bottom */
 }queue_l;
 
 /* ----------------------------------------------------------

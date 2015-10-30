@@ -27,6 +27,7 @@
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
 #define MAXPAR 2
 #define EXIT_COMMAND "exit"
+#define BUFFER_SIZE 100
 
 int child_count = 0;
 int exit_command = 0;
@@ -40,6 +41,7 @@ int monitor(void);
 
 int main(int argc, char **argv){
 	node_l *temp = NULL;
+  char buffer[BUFFER_SIZE];
 	
 	int child_pid;
 	q_list = (queue_l*)malloc(sizeof(queue_l));
@@ -56,9 +58,11 @@ int main(int argc, char **argv){
 	while (1) {
 		int numArgs;
 		char **arg_vector = (char **)malloc(VECTOR_SIZE * sizeof(char *));
-		numArgs = readLineArguments(arg_vector, VECTOR_SIZE);
-		if (numArgs == 0)
+		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
+		if (numArgs == 0) {
+      free(arg_vector);
 			continue;
+    }
 		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 && arg_vector[1] == NULL) {
 
 			/* signal exit command */
@@ -68,11 +72,11 @@ int main(int argc, char **argv){
       sem_post_(&noChilds);
 			pthread_join_(monitor_thread, NULL);
 
-			while ((temp = dequeue(q_list)) != NULL) {
+			/* while ((temp = dequeue(q_list)) != NULL) {
 				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
 						temp->status, temp->end.tv_sec - temp->start.tv_sec);
 				free(temp);
-			}
+			} */
 			
 			/* terminate sync objects */
 			pthread_mutex_destroy_(&mutex);
