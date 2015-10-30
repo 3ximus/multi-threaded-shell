@@ -1,11 +1,13 @@
-# Makefile
+CC=gcc
+CFLAGS=-Wall -Weverything -pedantic
+
 par-shell: par-shell.o commandlinereader.o
-	gcc -o par-shell par-shell.o commandlinereader.o -pthread
-	gcc -o fibonacci fibonacci.c
+	$(CC) -o par-shell par-shell.o commandlinereader.o -pthread
+	$(CC) -o fibonacci fibonacci.c
 par-shell.o: par-shell.c commandlinereader.h
-	gcc -Wall -c par-shell.c
+	$(CC) -c par-shell.c
 commandlinereader.o: commandlinereader.c commandlinereader.h
-	gcc -Wall -c commandlinereader.c
+	$(CC) -c commandlinereader.c
 clean:
 	rm -f par-shell *.o fibonacci
 	

@@ -1,12 +1,11 @@
 fibonacci 10000
-fibonacci 20000
-fibonacci 30000
-fibonacci 20000
-fibonacci 15000
 fibonacci 10000
-fibonacci 30000
-fibonacci 15000
-fibonacci 40000
-fibonacci 25000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
 exit
-

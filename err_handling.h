@@ -1,5 +1,5 @@
-#ifndef __ERR_CHECK_H
-#define __ERR_CHECK_H
+#ifndef __ERR_HANDLING_H
+#define __ERR_HANDLING_H
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -72,6 +72,8 @@ pthread_mutex_destroy_(pthread_mutex_t * mutex)
     exit(EXIT_FAILURE);
   }
 }
+
+
 
 /* --------------------------------------------------------------------------
  * Semaphores error checking
