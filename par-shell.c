@@ -25,7 +25,7 @@
 
 /* Defines */
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
-#define MAXPAR 2
+#define MAXPAR 4
 #define EXIT_COMMAND "exit"
 #define BUFFER_SIZE 100
 
@@ -42,6 +42,8 @@ int monitor(void);
 int main(int argc, char **argv){
 	node_l *temp = NULL;
   char buffer[BUFFER_SIZE];
+  int numArgs;
+  char *arg_vector[VECTOR_SIZE];
 	
 	int child_pid;
 	pthread_t monitor_thread;
@@ -56,14 +58,11 @@ int main(int argc, char **argv){
   pthread_create_(&monitor_thread, NULL, (void *) monitor, NULL);
 
 	while (1) {
-		int numArgs;
-		char **arg_vector = (char **)malloc(VECTOR_SIZE * sizeof(char *));
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
-		if (numArgs == 0) {
-      free(arg_vector);
+		if (numArgs <= 0) {
 			continue;
     }
-		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 && arg_vector[1] == NULL) {
+		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) { //&& arg_vector[1] == NULL) {
 
 			/* signal exit command */
 			exit_command = 1;
@@ -72,9 +71,10 @@ int main(int argc, char **argv){
       sem_post_(&noChilds);
 			pthread_join_(monitor_thread, NULL);
 
+      /* imprime lista e liberta a memória dos elementos da lista*/
 			while ((temp = dequeue(q_list)) != NULL) {
-				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
-						temp->status, temp->end.tv_sec - temp->start.tv_sec);
+				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\t%ld MICROSECONDS\n", temp->process_pid,
+						temp->status, temp->end.tv_sec - temp->start.tv_sec, temp->end.tv_usec - temp->start.tv_usec);
 				free(temp);
 			}
 			
@@ -84,42 +84,36 @@ int main(int argc, char **argv){
       sem_destroy_(&noChilds);
 
 			free(q_list);
-			free(arg_vector);
 			exit(EXIT_SUCCESS);
 		}
-		else {
-      sem_wait_(&maxChilds);
 
-			child_pid = fork();
-			if (child_pid == 0){ /* execute on child */
-				if (execv(arg_vector[0], arg_vector) == -1) {
-					perror("[ERROR] executing program.");
-					exit(EXIT_FAILURE);
-        		}
-        free(arg_vector);
-        exit(EXIT_SUCCESS);
-			}
-			else { /* execute on parent */
-        /*
-         * Main thread
-         *
-         * Child processes are registered into the queue saving their pid
-         * and their start time.
-         * Child counter is incremented.
-         * The semaphore controlling maximum parallel children is decremented.
-         */
-				pthread_mutex_lock_(&mutex);
-				enqueue(q_list, child_pid);
-				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
-				child_count++;
-        if (child_count == 1) {
-          sem_post_(&noChilds);
-        }
-				pthread_mutex_unlock_(&mutex);
-				
-			}
-		}
-		free(arg_vector);
+    sem_wait_(&maxChilds);
+
+    child_pid = fork(); // testar erro no fork
+    if (child_pid == 0){ /* execute on child */
+      if (execv(arg_vector[0], arg_vector) == -1) {
+        perror("[ERROR] executing program.");
+        exit(EXIT_FAILURE);
+          }
+    }
+    else { /* execute on parent */
+      /*
+       * Main thread
+       *
+       * Child processes are registered into the queue saving their pid
+       * and their start time.
+       * Child counter is incremented.
+       * The semaphore controlling maximum parallel children is decremented.
+       */
+      // guardar o tempo aqui
+      pthread_mutex_lock_(&mutex);
+      enqueue(q_list, child_pid); // enviar logo o tempo
+      // gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
+      child_count++;
+      pthread_mutex_unlock_(&mutex);
+      sem_post_(&noChilds); // fazer sempre post
+      
+    }
 	}
 	free(q_list);
 	// return 0;
@@ -136,14 +130,15 @@ int monitor(void) {
 	node_l * temp = NULL;
 
 	while (1) {
+    // esperar por filhos aqui
     pthread_mutex_lock_(&mutex);
     if (child_count > 0) {
+      pthread_mutex_unlock_(&mutex);
       child_pid = wait(&child_status);
       temp = find_pid(q_list, child_pid);
       temp->status = child_status;
       gettimeofday(&(temp->end), NULL);
       --child_count;
-      pthread_mutex_unlock_(&mutex);
       sem_post_(&maxChilds);
     }
     else if (exit_command != 0) {
