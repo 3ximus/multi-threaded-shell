@@ -16,9 +16,17 @@ typedef struct node {
 
 /* Queue (FIFO) */
 typedef struct queue {
-	struct node *head = NULL; /* List top */
-	struct node *tail = NULL; /* List bottom */
+	struct node *head; /* List top */
+	struct node *tail; /* List bottom */
 }queue_l;
+
+queue_l *new_queue(){
+	queue_l *queue;
+	queue = (queue_l*)malloc(sizeof(queue_l));
+	queue->head = NULL;
+	queue->tail = NULL;
+	return queue;
+}
 
 /* ----------------------------------------------------------
  * Add a new node to the queue with given pid
@@ -29,6 +37,7 @@ void enqueue(struct queue *queue_list, int pid){
 		return;
 	struct node *in_node = (struct node*)malloc(sizeof(struct node));
 	in_node->process_pid = pid;
+	in_node->next = NULL;
 
 	if (queue_list->head == NULL)
 		queue_list->head = in_node;

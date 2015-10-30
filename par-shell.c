@@ -44,8 +44,8 @@ int main(int argc, char **argv){
   char buffer[BUFFER_SIZE];
 	
 	int child_pid;
-	q_list = (queue_l*)malloc(sizeof(queue_l));
 	pthread_t monitor_thread;
+	q_list = new_queue();
 
 	/* Initialize synchronization objects */
   pthread_mutex_init_(&mutex, NULL);
@@ -72,11 +72,11 @@ int main(int argc, char **argv){
       sem_post_(&noChilds);
 			pthread_join_(monitor_thread, NULL);
 
-			/* while ((temp = dequeue(q_list)) != NULL) {
+			while ((temp = dequeue(q_list)) != NULL) {
 				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
 						temp->status, temp->end.tv_sec - temp->start.tv_sec);
 				free(temp);
-			} */
+			}
 			
 			/* terminate sync objects */
 			pthread_mutex_destroy_(&mutex);
@@ -121,7 +121,7 @@ int main(int argc, char **argv){
 		}
 		free(arg_vector);
 	}
-	// free(q_list);
+	free(q_list);
 	// return 0;
 }
 
