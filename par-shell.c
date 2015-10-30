@@ -1,8 +1,11 @@
-//
-// Shell Paralela
-// Sistemas Operativos 2015
-//
 
+/* ----------------------------------------------------------
+ * Shell Paralela
+ * Grupo 82
+ * Sistemas Operativos 2015
+ ---------------------------------------------------------- */
+
+/* System Includes */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,198 +14,147 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <time.h>
-#include <sys/time.h>
 #include <semaphore.h>
 #include <errno.h>
 
+/* Our Includes */
 #include "commandlinereader.h"
+#include "queue.h"
+#include "err_handling.h"
 
+/* Defines */
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
-
-/* Data Structures and variables */
-struct node {
-	int process_pid;
-	int status;
-	struct timeval start;
-	struct timeval end;
-	struct node *next;
-};
-
-struct queue {
-	struct node *head;
-	struct node *tail;
-};
-
-void enqueue(struct queue *queue_list, int pid){
-	if (queue_list == NULL)
-		return;
-
-	struct node *in_node = (struct node*)malloc(sizeof(struct node));
-	in_node->process_pid = pid;
-
-	if (queue_list->head == NULL)
-		queue_list->head = in_node;
-	if (queue_list->tail == NULL)
-		queue_list->tail = in_node;
-	else{
-		queue_list->tail->next = in_node;
-		queue_list->tail = in_node;
-	}
-}
-
-struct node *dequeue(struct queue *queue_list){
-	struct node *out_node = NULL;
-	if (queue_list == NULL || queue_list->head == NULL)
-		return NULL;
-	out_node = queue_list->head;
-	if (queue_list->head->next != NULL){
-		queue_list->head = out_node->next;
-	}
-	else{
-		/* queue ended, no more nodes */
-		queue_list->head = NULL;
-		queue_list->tail = NULL;
-	}
-	return out_node;
-}
-
-struct node *find_pid(struct queue *queue_list, int child_id){
-	struct node *crawler = NULL;
-	
-	if (queue_list == NULL) {
-		return NULL;
-	}
-	crawler = queue_list->head;
-
-	if (child_id == crawler->process_pid){
-		return crawler;
-	}
-	while (crawler->next != NULL) {
-		crawler = crawler->next;
-		if (child_id == crawler->process_pid){
-			return crawler;
-		}
-	}
-	return NULL;
-}
-
-
-extern int errno;
+#define MAXPAR 4
+#define EXIT_COMMAND "exit"
+#define BUFFER_SIZE 100
 
 int child_count = 0;
 int exit_command = 0;
-pthread_mutex_t mutExcSem; /* mutual exclusion semaphore */
-sem_t activeChilds;
-struct queue *q_list;
+pthread_mutex_t mutex;
+sem_t maxChilds;
+sem_t noChilds;
+queue_l *q_list;
 
-/* Forward declaractions */
-int monitor();
+/* Forward declaraction */
+int monitor(void);
 
 int main(int argc, char **argv){
-	struct node *temp = NULL;
+	node_l *temp = NULL;
+  char buffer[BUFFER_SIZE];
+  int numArgs;
+  char *arg_vector[VECTOR_SIZE];
+  time_t start_time;
 	
 	int child_pid;
-	q_list = (struct queue*)malloc(sizeof(struct queue));
-	pthread_t monitor_thread_ID;
+	pthread_t monitor_thread;
+	q_list = new_queue();
 
 	/* Initialize synchronization objects */
-	if ((pthread_mutex_init(&mutExcSem, NULL)) != 0) {
-		perror("[ERROR] pthread_mutex_init : ");
-		exit(EXIT_FAILURE);
-	}
-	if ((sem_init(&activeChilds, 0, 0)) == -1) {
-		perror("[ERROR] sem_init : ");
-		exit(EXIT_FAILURE);
-	}
-	
+  pthread_mutex_init_(&mutex, NULL);
+  sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
+  sem_init_(&noChilds, 0, 0);
+
 	/* Create Thread */
-	if (pthread_create(&monitor_thread_ID, NULL, (void *)monitor, NULL) != 0){
-		exit(EXIT_FAILURE);
-	}
-
-	struct timeval timestart;
-	//struct time timeend;
-	//int timedelta;
-
-	while(1){
-		char **arg_vector = (char **)malloc(VECTOR_SIZE * sizeof(char *));
-		if (readLineArguments(arg_vector, VECTOR_SIZE) == -1) {
-			perror("[ERROR] Reading command");
-			exit(EXIT_FAILURE);
-		}	
-		if (strcmp(arg_vector[0], "exit") == 0 && arg_vector[1] == NULL) {
+  pthread_create_(&monitor_thread, NULL, (void *) monitor, NULL);
+	while (1) {
+		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
+		if (numArgs <= 0) {
+			continue;
+    }
+		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) {
 
 			/* signal exit command */
 			exit_command = 1;
-			/* wait for monitor thread to end */
-			if ((sem_wait(&activeChilds)) == -1) {
-				perror("[ERROR] sem_wait : ");
-				exit(EXIT_FAILURE);
-			}
-			if ((pthread_join(monitor_thread_ID, NULL)) != 0) {
-				perror("[ERROR] pthread_join : ");
-				exit(EXIT_FAILURE);
-			}
 
+			/* wait for monitor thread to end */
+      sem_post_(&noChilds);
+			pthread_join_(monitor_thread, NULL);
+
+      /* print all the elements in the list and free their memory */
 			while ((temp = dequeue(q_list)) != NULL) {
 				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
-						temp->status, temp->end.tv_sec - temp->start.tv_sec);
+						temp->status, temp->end - temp->start);
 				free(temp);
 			}
 			
 			/* terminate sync objects */
-			pthread_mutex_destroy(&mutExcSem);
-			sem_destroy(&activeChilds);
+			pthread_mutex_destroy_(&mutex);
+			sem_destroy_(&maxChilds);
+      sem_destroy_(&noChilds);
 
 			free(q_list);
-			free(arg_vector);
 			exit(EXIT_SUCCESS);
 		}
-		else {
-			child_pid = fork();
-			if (child_pid == 0){ /* execute on child */
-				if (execv(arg_vector[0], arg_vector) == -1)
-					perror("[ERROR] executing program.");
-					exit(EXIT_FAILURE);
-			}
-			else { /* execute on parent */
-				/* save child process pid in the queue along with starttime
-				 * and increment child counter */
-				pthread_mutex_lock(&mutExcSem);
-				enqueue(q_list, child_pid);
-				gettimeofday(&(find_pid(q_list, child_pid)->start), NULL);
-				child_count++;
-				pthread_mutex_unlock(&mutExcSem);
-				
-			}
-		}
-		free(arg_vector);
+
+    /* while there are child process slots available launch new child process,
+     * else wait here */
+    sem_wait_(&maxChilds);
+
+    child_pid = fork(); // testar erro no fork
+    if (child_pid == 0){ /* execute on child */
+      if (execv(arg_vector[0], arg_vector) == -1) {
+        perror("[ERROR] executing program.");
+        exit(EXIT_FAILURE);
+          }
+    }
+    else if (child_pid == -1) {
+      perror("[ERROR] fork error.");
+      continue;
+    }
+    else { /* execute on parent */
+      /*
+       * Main thread
+       *
+       * Child processes are registered into the queue saving their pid
+       * and their start time.
+       * Child counter is incremented.
+       * The semaphore controlling maximum parallel children is decremented.
+       */
+      time(&start_time); /* get start time of child process */
+      pthread_mutex_lock_(&mutex);
+      enqueue(q_list, child_pid, start_time);
+      child_count++;
+      pthread_mutex_unlock_(&mutex);
+      sem_post_(&noChilds);
+    }
 	}
-	free(q_list);
-	return 0;
 }
 
-int monitor() {
+/* ----------------------------------------------------------
+ * Monitor Thread
+ *
+ * Monitor thread waits for child processes to end and
+ * saves their status and end time.
+ * If there are no children, monitor thread is suspended waiting for any new
+ * child process.
+ * ---------------------------------------------------------- */
+int monitor(void) {
 	int child_pid;
 	int child_status;
-	struct node * temp = NULL;
+	node_l * temp = NULL;
 
 	while (1) {
-		if (child_count > 0) {
-			pthread_mutex_lock(&mutExcSem);
-			child_pid = wait(&child_status);
-			temp = find_pid(q_list, child_pid);
-			temp->status = child_status;
-			gettimeofday(&(temp->end), NULL);
-			--child_count;
-			pthread_mutex_unlock(&mutExcSem);
-		}
-		else if (exit_command != 0) {
-			sem_post(&activeChilds);
+    sem_wait_(&noChilds); /* wait for a new child process */
+
+
+    pthread_mutex_lock_(&mutex);
+    if (child_count > 0) {
+      pthread_mutex_unlock_(&mutex);
+
+      child_pid = wait(&child_status);
+
+      pthread_mutex_lock_(&mutex);
+      temp = find_pid(q_list, child_pid);
+      temp->status = child_status;
+      time(&temp->end);
+      --child_count;
+      pthread_mutex_unlock_(&mutex);
+
+      sem_post_(&maxChilds);
+    }
+    else if (exit_command != 0) {
+      pthread_mutex_unlock_(&mutex);
 			pthread_exit(NULL);
-		}
-		else {
-			sleep(1);
-		}
+    }
 	}
 }
