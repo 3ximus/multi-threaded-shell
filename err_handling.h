@@ -84,7 +84,7 @@ void
 sem_init_(sem_t * sem, int shared, unsigned int value)
 {
   if ((sem_init(sem, shared, value)) == -1) {
-    fprintf(stderr, "[ERROR] Semaphore initialization error.\n");
+    perror("[ERROR] Semaphore initialization error.");
     exit(EXIT_FAILURE);
   }
 }
@@ -94,7 +94,7 @@ void
 sem_wait_(sem_t * sem)
 {
   if ((sem_wait(sem)) == -1) {
-    fprintf(stderr,  "[ERROR] Semaphore wait error.\n");
+    perror("[ERROR] Semaphore wait error.");
     exit(EXIT_FAILURE);
   }
 }
@@ -104,7 +104,7 @@ void
 sem_post_(sem_t * sem)
 {
   if ((sem_post(sem)) == -1) {
-    fprintf(stderr, "[ERROR] Semaphore post error.\n");
+    perror("[ERROR] Semaphore post error.");
     exit(EXIT_FAILURE);
   }
 }
@@ -114,7 +114,7 @@ void
 sem_destroy_(sem_t * sem)
 {
   if ((sem_destroy(sem)) == -1) {
-    fprintf(stderr, "[ERROR] Semaphore destroying error.\n");
+    perror("[ERROR] Semaphore destroying error.");
     exit(EXIT_FAILURE);
   }
 }
