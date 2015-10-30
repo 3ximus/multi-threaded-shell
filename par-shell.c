@@ -65,6 +65,7 @@ int main(int argc, char **argv){
 			exit_command = 1;
 
 			/* wait for monitor thread to end */
+      sem_post_(&noChilds);
 			pthread_join_(monitor_thread, NULL);
 
 			while ((temp = dequeue(q_list)) != NULL) {
@@ -91,6 +92,8 @@ int main(int argc, char **argv){
 					perror("[ERROR] executing program.");
 					exit(EXIT_FAILURE);
         		}
+        free(arg_vector);
+        exit(EXIT_SUCCESS);
 			}
 			else { /* execute on parent */
         /*
@@ -114,8 +117,8 @@ int main(int argc, char **argv){
 		}
 		free(arg_vector);
 	}
-	free(q_list);
-	return 0;
+	// free(q_list);
+	// return 0;
 }
 
 /* ----------------------------------------------------------
