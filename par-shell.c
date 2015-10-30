@@ -24,7 +24,7 @@
 
 /* Defines */
 #define VECTOR_SIZE 7 /* program name + 5 arguments */
-#define MAXPAR 4
+#define MAXPAR 2
 #define EXIT_COMMAND "exit"
 #define BUFFER_SIZE 100
 
@@ -73,8 +73,8 @@ int main(int argc, char **argv){
 
       /* imprime lista e liberta a memória dos elementos da lista*/
 			while ((temp = dequeue(q_list)) != NULL) {
-				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\t%ld MICROSECONDS\n", temp->process_pid,
-						temp->status, temp->end - temp->start, temp->end - temp->start);
+				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
+						temp->status, temp->end - temp->start);
 				free(temp);
 			}
 			
@@ -141,7 +141,7 @@ int monitor(void) {
       pthread_mutex_lock_(&mutex);
       temp = find_pid(q_list, child_pid);
       temp->status = child_status;
-      time(temp->end);
+      time(&temp->end);
       --child_count;
       pthread_mutex_unlock_(&mutex);
       sem_post_(&maxChilds);
