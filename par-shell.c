@@ -36,7 +36,8 @@ sem_t noChilds;
 list_t * lst;
 
 /* Forward declaraction */
-int monitor(void);
+void *monitor(void);
+void *writer(void);
 
 int main(int argc, char **argv){
 	char buffer[BUFFER_SIZE];
@@ -54,7 +55,7 @@ int main(int argc, char **argv){
 	sem_init_(&noChilds, 0, 0);
 
 	/* Create Thread */
-	pthread_create_(&monitor_thread, NULL, (void *) monitor, NULL);
+	pthread_create_(&monitor_thread, NULL, (void *) &monitor, NULL);
 
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
@@ -86,12 +87,16 @@ int main(int argc, char **argv){
 	* else wait here */
 	sem_wait_(&maxChilds);
 
-	child_pid = fork(); // testar erro no fork
+	child_pid = fork();
+	if (child_pid < 0){ /* test for error in fork */
+		perror("[ERROR] forking process");
+		exit(EXIT_FAILURE);
+	}
 	if (child_pid == 0){ /* execute on child */
 		if (execv(arg_vector[0], arg_vector) == -1) {
 		perror("[ERROR] executing program.");
 		exit(EXIT_FAILURE);
-			}
+		}
 	}
 	else if (child_pid == -1) {
 		perror("[ERROR] fork error.");
@@ -124,7 +129,7 @@ int main(int argc, char **argv){
 * If there are no children, monitor thread is suspended waiting for any new
 * child process.
 * ---------------------------------------------------------- */
-int monitor(void) {
+void *monitor(void) {
 	int child_pid;
 	int child_status;
 	time_t endtime;
@@ -152,4 +157,13 @@ int monitor(void) {
 				pthread_exit(NULL);
 		}
 	}
+}
+
+/* ----------------------------------------------------------
+* Writer Thread
+*
+* "Description"
+* ---------------------------------------------------------- */
+void *writer(void){
+
 }
