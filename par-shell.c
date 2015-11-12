@@ -31,11 +31,13 @@
 int child_count = 0;
 int exit_command = 0;
 pthread_mutex_t mutex;
+pthread_cond_t cond;
 sem_t maxChilds;
 sem_t noChilds;
-list_t * lst;
+list_t *lst;
+FILE* log_fd;
 
-/* Forward declaraction */
+/* Forward declaractions */
 void *monitor(void);
 void *writer(void);
 
@@ -47,6 +49,7 @@ int main(int argc, char **argv){
 	
 	int child_pid;
 	pthread_t monitor_thread;
+	pthread_t writer_thread;
 	lst = lst_new();
 
 	/* Initialize synchronization objects */
@@ -54,8 +57,16 @@ int main(int argc, char **argv){
 	sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
 	sem_init_(&noChilds, 0, 0);
 
-	/* Create Thread */
-	pthread_create_(&monitor_thread, NULL, (void *) &monitor, NULL);
+	if ((log_fd = fopen("./log.txt", 'a+')) == NULL){
+		perror("[ERROR] opening log file");
+		exit(EXIT_FAILURE);
+	}
+
+	/* Create Monitor Thread */
+	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL);
+
+	/* Create Writer Thread */
+	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL);
 
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
@@ -70,6 +81,7 @@ int main(int argc, char **argv){
 			/* wait for monitor thread to end */
 			sem_post_(&noChilds);
 			pthread_join_(monitor_thread, NULL);
+			pthread_join_(writer_thread, NULL);
 
 			/* print all the elements in the list */
 			lst_print(lst);
@@ -78,57 +90,52 @@ int main(int argc, char **argv){
 			pthread_mutex_destroy_(&mutex);
 			sem_destroy_(&maxChilds);
 			sem_destroy_(&noChilds);
-
+			fclose(log_fd);
 			lst_destroy(lst);
 			exit(EXIT_SUCCESS);
 		}
 
-	/* while there are child process slots available launch new child process,
-	* else wait here */
-	sem_wait_(&maxChilds);
+		/* while there are child process slots available launch new child process,
+		* else wait here */
+		sem_wait_(&maxChilds);
 
-	child_pid = fork();
-	if (child_pid < 0){ /* test for error in fork */
-		perror("[ERROR] forking process");
-		exit(EXIT_FAILURE);
-	}
-	if (child_pid == 0){ /* execute on child */
-		if (execv(arg_vector[0], arg_vector) == -1) {
-		perror("[ERROR] executing program.");
-		exit(EXIT_FAILURE);
+		child_pid = fork();
+		if (child_pid < 0){ /* test for error in fork */
+			perror("[ERROR] forking process");
+			continue;
 		}
-	}
-	else if (child_pid == -1) {
-		perror("[ERROR] fork error.");
-		continue;
-	}
-	else { /* execute on parent */
-		/*
-		* Main thread
-		*
-		* Child processes are registered into the queue saving their pid
-		* and their start time.
-		* Child counter is incremented.
-		* The semaphore controlling maximum parallel children is decremented.
-		*/
-		time(&starttime); /* get start time of child process */
-		pthread_mutex_lock_(&mutex);
-		insert_new_process(lst, child_pid, starttime);
-		child_count++;
-		pthread_mutex_unlock_(&mutex);
-		sem_post_(&noChilds);
-	}
+		if (child_pid == 0){ /* execute on child */
+			if (execv(arg_vector[0], arg_vector) == -1) {
+			perror("[ERROR] executing program.");
+			exit(EXIT_FAILURE);
+			}
+		}
+		else { /* execute on parent */
+			/* Main thread
+			 *
+			 * Child processes are registered into the queue saving their pid
+			 * and their start time.
+			 * Child counter is incremented.
+			 * The semaphore controlling maximum parallel children is decremented.
+ 			 */
+			time(&starttime); /* get start time of child process */
+			pthread_mutex_lock_(&mutex);
+			insert_new_process(lst, child_pid, starttime);
+			child_count++;
+			pthread_mutex_unlock_(&mutex);
+			sem_post_(&noChilds);
+		}
 	}
 }
 
 /* ----------------------------------------------------------
-* Monitor Thread
-*
-* Monitor thread waits for child processes to end and
-* saves their status and end time.
-* If there are no children, monitor thread is suspended waiting for any new
-* child process.
-* ---------------------------------------------------------- */
+ * Monitor Thread
+ *
+ * Monitor thread waits for child processes to end and
+ * saves their status and end time.
+ * If there are no children, monitor thread is suspended waiting for any new
+ * child process.
+ * ---------------------------------------------------------- */
 void *monitor(void) {
 	int child_pid;
 	int child_status;
@@ -154,16 +161,39 @@ void *monitor(void) {
 		}
 		else if (exit_command != 0) {
 			pthread_mutex_unlock_(&mutex);
-				pthread_exit(NULL);
+			pthread_exit(NULL);
 		}
 	}
 }
 
 /* ----------------------------------------------------------
-* Writer Thread
-*
-* "Description"
-* ---------------------------------------------------------- */
+ * Writer Thread
+ *
+ * "Description"
+ * ---------------------------------------------------------- */
 void *writer(void){
+	static int total_execution_time = 0, iteration = 0;
+
+
+	int test_pid = 10, test_exec_time = 10;
+
+	while (1){
+		/* TODO read iteration and total execution time */
+
+		/* TODO read times */
+
+		/* wait for a condition */
+		fprintf(log_fd, "iteration %d\npid: %d execution time: %d s\ntotal execution time: %d s\n",
+		 iteration, test_pid, test_exec_time,  total_execution_time);
+		fflush(log_fd);
+
+
+		/* exit thread */
+		pthread_mutex_lock_(&mutex);
+		if (exit_command != 0){
+			pthread_mutex_unlock_(&mutex);
+			pthred_exit(NULL);		
+		}
+	}
 
 }
