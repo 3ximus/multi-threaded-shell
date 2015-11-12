@@ -28,8 +28,8 @@
 #define EXIT_COMMAND	"exit"
 #define BUFFER_SIZE		100
 
-int child_count = 0;
-int exit_command = 0;
+
+int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
 pthread_cond_t cond;
 sem_t maxChilds;
@@ -40,6 +40,7 @@ FILE* log_fd;
 /* Forward declaractions */
 void *monitor(void);
 void *writer(void);
+void read_log(void);
 
 int main(int argc, char **argv){
 	char buffer[BUFFER_SIZE];
@@ -57,7 +58,7 @@ int main(int argc, char **argv){
 	sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
 	sem_init_(&noChilds, 0, 0);
 
-	if ((log_fd = fopen("./log.txt", 'a+')) == NULL){
+	if ((log_fd = fopen("./log.txt", "a+")) == NULL){
 		perror("[ERROR] opening log file");
 		exit(EXIT_FAILURE);
 	}
@@ -65,6 +66,7 @@ int main(int argc, char **argv){
 	/* Create Monitor Thread */
 	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL);
 
+	read_log(); /* assign total time and iteration values for this execution */
 	/* Create Writer Thread */
 	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL);
 
@@ -153,8 +155,10 @@ void *monitor(void) {
 			time(&endtime);
 
 			pthread_mutex_lock_(&mutex);
+			/*pthread_cond_wait(&cond, &mutex);*/
 			update_terminated_process(lst, child_pid, endtime, child_status);
 			--child_count;
+			pthread_cond_signal(&cond);
 			pthread_mutex_unlock_(&mutex);
 
 			sem_post_(&maxChilds);
@@ -172,28 +176,43 @@ void *monitor(void) {
  * "Description"
  * ---------------------------------------------------------- */
 void *writer(void){
-	static int total_execution_time = 0, iteration = 0;
-
-
 	int test_pid = 10, test_exec_time = 10;
 
 	while (1){
-		/* TODO read iteration and total execution time */
-
 		/* TODO read times */
 
 		/* wait for a condition */
+		pthread_mutex_lock_(&mutex);
+		pthread_cond_wait(&cond, &mutex);
 		fprintf(log_fd, "iteration %d\npid: %d execution time: %d s\ntotal execution time: %d s\n",
-		 iteration, test_pid, test_exec_time,  total_execution_time);
+		 iteration, test_pid, test_exec_time, total_execution_time);
 		fflush(log_fd);
+		/*pthread_cond_signal(&cond);*/
+		pthread_mutex_unlock_(&mutex);
 
 
 		/* exit thread */
 		pthread_mutex_lock_(&mutex);
 		if (exit_command != 0){
 			pthread_mutex_unlock_(&mutex);
-			pthred_exit(NULL);		
+			pthread_exit(NULL);		
 		}
+		pthread_mutex_unlock_(&mutex);
 	}
 
+}
+
+void read_log(void){
+	char iteration_buff[50];
+	char pid_buff[50];
+	char time_buff[50];
+	
+	/* read all the lines, the ones left are the last ones to read */
+	while ((fgets(iteration_buff, 50, log_fd) != NULL) &&
+		   (fgets(pid_buff, 50, log_fd) != NULL) &&
+		   (fgets(time_buff, 50, log_fd) != NULL))
+		{continue;}
+	/* interpret read buffers */
+	sscanf(iteration_buff, "iteracao %d\n", &iteration);
+	sscanf(time_buff, "total execution time: %d s\n", &total_execution_time);
 }
