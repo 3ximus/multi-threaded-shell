@@ -14,7 +14,6 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <time.h>
-#include <semaphore.h>
 #include <errno.h>
 
 /* Our Includes */
@@ -34,8 +33,8 @@
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
 pthread_cond_t write_cond;
-sem_t maxChilds;
-sem_t noChilds;
+pthread_cond_t max_par;
+pthread_cond_t new_child;
 list_t *lst;
 queue_l *writing_queue;
 FILE* log_fd;
@@ -60,8 +59,8 @@ int main(int argc, char **argv){
 	/* Initialize synchronization objects */
 	pthread_mutex_init_(&mutex, NULL);
 	pthread_cond_init_(&write_cond, 0);
-	sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
-	sem_init_(&noChilds, 0, 0);
+	pthread_cond_init_(&max_par, NULL);
+	pthread_cond_init_(&new_child, NULL);
 
 	if ((log_fd = fopen("./log.txt", "a+")) == NULL){
 		perror("[ERROR] opening log file");
@@ -82,7 +81,7 @@ int main(int argc, char **argv){
 			exit_command = 1;
 
 			/* wait for monitor thread to end */
-			sem_post_(&noChilds);
+			pthread_cond_signal_(&new_child); /* must signal to catch exit flag */
 			pthread_join_(monitor_thread, NULL);
 			pthread_join_(writer_thread, NULL);
 
@@ -92,8 +91,8 @@ int main(int argc, char **argv){
 			/* terminate sync objects */
 			pthread_mutex_destroy_(&mutex);
 			pthread_cond_destroy_(&write_cond);
-			sem_destroy_(&maxChilds);
-			sem_destroy_(&noChilds);
+			pthread_cond_destroy_(&max_par);
+			pthread_cond_destroy_(&new_child);
 			fclose(log_fd);
 			lst_destroy(lst);
 			exit(EXIT_SUCCESS);
@@ -101,7 +100,12 @@ int main(int argc, char **argv){
 
 		/* while there are child process slots available launch new child process,
 		* else wait here */
-		sem_wait_(&maxChilds);
+
+		pthread_mutex_lock(&mutex);
+		if (child_count >= MAXPAR) {
+			pthread_cond_wait_(&max_par, &mutex);
+		}
+		pthread_mutex_unlock_(&mutex);
 
 		child_pid = fork();
 		if (child_pid < 0){ /* test for error in fork */
@@ -117,17 +121,17 @@ int main(int argc, char **argv){
 		else { /* execute on parent */
 			/* Main thread
 			 *
-			 * Child processes are registered into the queue saving their pid
+			 * Child processes are inserted into the process list saving their pid
 			 * and their start time.
 			 * Child counter is incremented.
-			 * The semaphore controlling maximum parallel children is decremented.
+			 * The condition variable waiting for a new child process is signaled.
  			 */
 			time(&starttime); /* get start time of child process */
 			pthread_mutex_lock_(&mutex);
 			insert_new_process(lst, child_pid, starttime);
 			child_count++;
 			pthread_mutex_unlock_(&mutex);
-			sem_post_(&noChilds);
+			pthread_cond_signal_(&new_child);
 		}
 	}
 }
@@ -146,29 +150,31 @@ void *monitor(void) {
 	time_t endtime;
 
 	while (1) {
-		sem_wait_(&noChilds); /* wait for a new child process */
+		pthread_mutex_lock_(&mutex);
+		if (child_count <= 0) {
+			pthread_cond_wait_(&new_child, &mutex);
+		}
+		pthread_mutex_unlock_(&mutex);
+
+		child_pid = wait(&child_status);
+		time(&endtime);
 
 		pthread_mutex_lock_(&mutex);
-		if (child_count > 0) {
-			pthread_mutex_unlock_(&mutex);
+		/*pthread_cond_wait_(&write_cond, &mutex);*/
+		update_terminated_process(lst, child_pid, endtime, child_status);
+		enqueue(writing_queue, child_pid); /* put process on hold to be written */
+		--child_count;
+		pthread_cond_signal_(&write_cond);
+		pthread_mutex_unlock_(&mutex);
 
-			child_pid = wait(&child_status);
-			time(&endtime);
+		pthread_cond_signal_(&max_par);
 
-			pthread_mutex_lock_(&mutex);
-			/*pthread_cond_wait_(&write_cond, &mutex);*/
-			update_terminated_process(lst, child_pid, endtime, child_status);
-			enqueue(writing_queue, child_pid); /* put process on hold to be written */
-			--child_count;
-			pthread_cond_signal_(&write_cond);
-			pthread_mutex_unlock_(&mutex);
-
-			sem_post_(&maxChilds);
-		}
-		else if (exit_command != 0) {
+		pthread_mutex_lock_(&mutex);
+		if (exit_command != 0 && child_count <= 0) {
 			pthread_mutex_unlock_(&mutex);
 			pthread_exit(NULL);
 		}
+		pthread_mutex_unlock_(&mutex);
 	}
 }
 
