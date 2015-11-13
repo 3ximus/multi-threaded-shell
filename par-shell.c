@@ -83,6 +83,7 @@ int main(int argc, char **argv){
 
 			/* wait for monitor thread to end */
 			sem_post_(&noChilds);
+			pthread_join_(monitor_thread, NULL);
 			pthread_join_(writer_thread, NULL);
 
 			/* print all the elements in the list */
@@ -179,17 +180,12 @@ void *monitor(void) {
 void *writer(void){
 	int pid, time_diff, total_execution_time_local, iteration_local;
 	while (1){
-		/* TODO read times */
 
 		/* wait for a condition */
 		pthread_mutex_lock_(&mutex);
 		while (writing_queue->head == NULL) pthread_cond_wait_(&cond, &mutex);
-		print_queue(writing_queue);
 		pid = dequeue(writing_queue); /* remove element to be written */
-		if ((time_diff = get_time_diff(lst, pid)) == -1){ /* calculate time execution time */
-			printf("[ERROR] acessing list. No more elements or unexistent pid.\n");
-			exit(EXIT_FAILURE);
-		}
+		time_diff = get_time_diff(lst, pid); /* calculate time execution time */
 
 		/* increment variables */
 		total_execution_time += time_diff;

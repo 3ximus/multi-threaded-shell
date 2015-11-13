@@ -67,14 +67,4 @@ int dequeue(struct queue *queue_list){
 	return pid;
 }
 
-void print_queue(struct queue *queue_list){
-	struct node *crawler = NULL;
-	crawler = queue_list->head;
-	while (crawler != NULL){
-		printf("|%d|->\n", crawler->process_pid);
-		fflush(stdout);
-		crawler = crawler->next;
-	}
-}
-
 #endif
