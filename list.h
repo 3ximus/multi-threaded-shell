@@ -11,18 +11,18 @@
 
 
 
-/* lst_iitem - each element of the list points to the next element */
-typedef struct lst_iitem {
+/* lst_item - each element of the list points to the next element */
+typedef struct lst_item {
    int pid;
    time_t starttime;
    time_t endtime;
    int status;
-   struct lst_iitem *next;
-} lst_iitem_t;
+   struct lst_item *next;
+} lst_item_t;
 
 /* list_t */
 typedef struct {
-   lst_iitem_t * first;
+   lst_item_t * first;
 } list_t;
 
 

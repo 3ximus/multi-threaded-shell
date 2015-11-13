@@ -22,7 +22,7 @@ list_t* lst_new()
 
 void lst_destroy(list_t *list)
 {
-  struct lst_iitem *item, *nextitem;
+  struct lst_item *item, *nextitem;
 
   item = list->first;
   while (item != NULL){
@@ -36,9 +36,9 @@ void lst_destroy(list_t *list)
 
 void insert_new_process(list_t *list, int pid, time_t starttime)
 {
-  lst_iitem_t *item;
+  lst_item_t *item;
 
-  item = (lst_iitem_t *) malloc (sizeof(lst_iitem_t));
+  item = (lst_item_t *) malloc (sizeof(lst_item_t));
   item->pid = pid;
   item->starttime = starttime;
   item->endtime = 0;
@@ -50,7 +50,7 @@ void insert_new_process(list_t *list, int pid, time_t starttime)
 
 void update_terminated_process(list_t *list, int pid, time_t endtime, int status)
 {
-  lst_iitem_t *item;
+  lst_item_t *item;
 
   item = list->first;
   while(item != NULL) {
@@ -68,7 +68,7 @@ void update_terminated_process(list_t *list, int pid, time_t endtime, int status
 
 void lst_print(list_t *list)
 {
-  lst_iitem_t *item;
+  lst_item_t *item;
 
   printf("\nList of processes:\n");
   item = list->first;

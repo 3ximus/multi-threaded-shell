@@ -55,6 +55,7 @@ int main(int argc, char **argv){
 
 	/* Initialize synchronization objects */
 	pthread_mutex_init_(&mutex, NULL);
+	pthread_cond_init(&cond, 0);
 	sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
 	sem_init_(&noChilds, 0, 0);
 
@@ -90,6 +91,7 @@ int main(int argc, char **argv){
 			
 			/* terminate sync objects */
 			pthread_mutex_destroy_(&mutex);
+			pthread_cond_destroy(&cond);
 			sem_destroy_(&maxChilds);
 			sem_destroy_(&noChilds);
 			fclose(log_fd);
@@ -146,7 +148,6 @@ void *monitor(void) {
 	while (1) {
 		sem_wait_(&noChilds); /* wait for a new child process */
 
-
 		pthread_mutex_lock_(&mutex);
 		if (child_count > 0) {
 			pthread_mutex_unlock_(&mutex);
@@ -173,7 +174,7 @@ void *monitor(void) {
 /* ----------------------------------------------------------
  * Writer Thread
  *
- * "Description"
+ * Writes to log file 
  * ---------------------------------------------------------- */
 void *writer(void){
 	int test_pid = 10, test_exec_time = 10;
