@@ -33,7 +33,7 @@
 
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
-pthread_cond_t cond;
+pthread_cond_t write_cond;
 sem_t maxChilds;
 sem_t noChilds;
 list_t *lst;
@@ -59,7 +59,7 @@ int main(int argc, char **argv){
 
 	/* Initialize synchronization objects */
 	pthread_mutex_init_(&mutex, NULL);
-	pthread_cond_init_(&cond, 0);
+	pthread_cond_init_(&write_cond, 0);
 	sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
 	sem_init_(&noChilds, 0, 0);
 
@@ -91,7 +91,7 @@ int main(int argc, char **argv){
 			
 			/* terminate sync objects */
 			pthread_mutex_destroy_(&mutex);
-			pthread_cond_destroy_(&cond);
+			pthread_cond_destroy_(&write_cond);
 			sem_destroy_(&maxChilds);
 			sem_destroy_(&noChilds);
 			fclose(log_fd);
@@ -156,11 +156,11 @@ void *monitor(void) {
 			time(&endtime);
 
 			pthread_mutex_lock_(&mutex);
-			/*pthread_cond_wait_(&cond, &mutex);*/
+			/*pthread_cond_wait_(&write_cond, &mutex);*/
 			update_terminated_process(lst, child_pid, endtime, child_status);
 			enqueue(writing_queue, child_pid); /* put process on hold to be written */
 			--child_count;
-			pthread_cond_signal_(&cond);
+			pthread_cond_signal_(&write_cond);
 			pthread_mutex_unlock_(&mutex);
 
 			sem_post_(&maxChilds);
@@ -179,11 +179,11 @@ void *monitor(void) {
  * ---------------------------------------------------------- */
 void *writer(void){
 	int pid, time_diff, total_execution_time_local, iteration_local;
-	while (1){
 
-		/* wait for a condition */
+	while (1){
 		pthread_mutex_lock_(&mutex);
-		while (writing_queue->head == NULL) pthread_cond_wait_(&cond, &mutex);
+		/* wait for a condition */
+		while (writing_queue->head == NULL) pthread_cond_wait_(&write_cond, &mutex);
 		pid = dequeue(writing_queue); /* remove element to be written */
 		time_diff = get_time_diff(lst, pid); /* calculate time execution time */
 
@@ -194,8 +194,6 @@ void *writer(void){
 		/* put variables locally */
 		iteration_local = iteration;
 		total_execution_time_local = total_execution_time;
-
-		pthread_cond_signal_(&cond);
 		pthread_mutex_unlock_(&mutex);
 
 		/* write to file */
@@ -204,7 +202,7 @@ void *writer(void){
 
 		/* exit thread */
 		pthread_mutex_lock_(&mutex);
-		if (exit_command != 0 && writing_queue->head == NULL){
+		if (exit_command != 0 && child_count == 0){
 			pthread_mutex_unlock_(&mutex);
 			pthread_exit(NULL);		
 		}
