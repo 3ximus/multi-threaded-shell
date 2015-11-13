@@ -50,4 +50,20 @@ void sem_post_(sem_t * sem);
 /* sem_destroy */
 void sem_destroy_(sem_t * sem);
 
+/* --------------------------------------------------------------------------
+ * Conditions error checking
+ * -------------------------------------------------------------------------- */
+
+/* pthread_cond_init */
+void pthread_cond_init_(pthread_cond_t *, const pthread_condattr_t *);
+
+/* pthread_cond_wait */
+void pthread_cond_wait_(pthread_cond_t*, pthread_mutex_t*);
+
+/* pthread_cond_signal */
+void pthread_cond_signal_(pthread_cond_t*);
+
+/* pthread_cond_destroy */
+void pthread_cond_destroy_(pthread_cond_t*);
+
 #endif

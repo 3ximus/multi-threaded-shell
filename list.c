@@ -84,3 +84,13 @@ void lst_print(list_t *list)
   printf("End of list.\n");
 }
 
+int get_time_diff(list_t *list, int pid){
+  lst_item_t *item;
+  item = list->first;
+  while (item != NULL){
+    if (item->pid == pid) return (int)(item->endtime - item->starttime);
+    item = item->next;
+  }
+  return -1;
+}
+

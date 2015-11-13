@@ -126,3 +126,48 @@ sem_destroy_(sem_t * sem)
 		exit(EXIT_FAILURE);
 	}
 }
+
+
+/* --------------------------------------------------------------------------
+ * Conditions error checking
+ * -------------------------------------------------------------------------- */
+
+/* pthread_mutex_init */
+void
+pthread_cond_init_(pthread_cond_t * cond, pthread_condattr_t * attr)
+{
+	if ((pthread_cond_init(cond, attr)) != 0) {
+		fprintf(stderr, "[ERROR] cond initialization error.\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/* pthread_cond_lock */
+void
+pthread_cond_wait_(pthread_cond_t * cond, pthread_mutex_t * mutex)
+{
+	if ((pthread_cond_wait(cond, mutex)) != 0) {
+		fprintf(stderr, "[ERROR] cond  wait error\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/* pthread_cond_unlock */
+void
+pthread_cond_signal_(pthread_cond_t * cond)
+{
+	if ((pthread_cond_signal(cond)) != 0) {
+		fprintf(stderr, "[ERROR] cond signal error\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/* pthread_cond_destroy */
+void
+pthread_cond_destroy_(pthread_cond_t * cond)
+{
+	if ((pthread_cond_destroy(cond)) != 0) {
+		fprintf(stderr, "[ERROR] cond destroying error\n");
+		exit(EXIT_FAILURE);
+	}
+}

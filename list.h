@@ -42,5 +42,8 @@ void update_terminated_process(list_t *list, int pid, time_t endtime, int status
 /* lst_print - print the content of list 'list' to standard output */
 void lst_print(list_t *list);
 
+/* get_time_diff - get time diference between start and end of a given pid */
+int get_time_diff(list_t *list, int pid);
+
 #endif
 
