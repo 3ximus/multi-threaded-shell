@@ -1,7 +1,7 @@
-//
-// Fibonacci application, version 1
-// Sistemas Operativos, DEI/IST/ULisboa 2015-16
-//
+/*
+ * Fibonacci application, version 1
+ * Sistemas Operativos, DEI/IST/ULisboa 2015-16
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,13 +12,13 @@
 
 int main (int argc, char** argv) {
 
+  unsigned long n, first = 0, second = 1, next, c, caux;
+
   if (argc != 2) { 
 	  printf("Incorrect arguments: fibonacci number_of_terms\n");
 	  exit(EXIT_FAILURE);
   }
   	
-
-  unsigned long n, first = 0, second = 1, next, c, caux;
 
    n = atoi(argv[1]);
 

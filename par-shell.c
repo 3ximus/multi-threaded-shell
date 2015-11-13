@@ -1,9 +1,10 @@
 
 /* ----------------------------------------------------------
- * Shell Paralela
- * Grupo 82
- * Sistemas Operativos 2015
- ---------------------------------------------------------- */
+* Shell Paralela
+* Grupo 82
+* Sistemas Operativos 2015
+---------------------------------------------------------- */
+
 
 /* System Includes */
 #include <stdio.h>
@@ -14,109 +15,125 @@
 #include <sys/wait.h>
 #include <pthread.h>
 #include <time.h>
-#include <semaphore.h>
 #include <errno.h>
 
 /* Our Includes */
 #include "commandlinereader.h"
+#include "list.h"
 #include "queue.h"
-#include "err_handling.h"
+#include "errorhandling.h"
 
 /* Defines */
-#define VECTOR_SIZE 7 /* program name + 5 arguments */
-#define MAXPAR 4
-#define EXIT_COMMAND "exit"
-#define BUFFER_SIZE 100
+#define VECTOR_SIZE		7 /* program name + 5 arguments */
+#define MAXPAR			4
+#define EXIT_COMMAND	"exit"
+#define BUFFER_SIZE		100
+#define LOG_TEMP_BUFF	50
 
-int child_count = 0;
-int exit_command = 0;
+
+int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
-sem_t maxChilds;
-sem_t noChilds;
-queue_l *q_list;
+pthread_cond_t write_cond;
+pthread_cond_t max_par;
+pthread_cond_t new_child;
+list_t *lst;
+queue_l *writing_queue;
+FILE* log_fd;
 
-/* Forward declaraction */
-int monitor(void);
+/* Forward declaractions */
+void *monitor(void);
+void *writer(void);
+void read_log(void);
 
 int main(int argc, char **argv){
-	node_l *temp = NULL;
-  char buffer[BUFFER_SIZE];
-  int numArgs;
-  char *arg_vector[VECTOR_SIZE];
-  time_t start_time;
+	char buffer[BUFFER_SIZE];
+	int numArgs;
+	char *arg_vector[VECTOR_SIZE];
+	time_t starttime;
 	
 	int child_pid;
 	pthread_t monitor_thread;
-	q_list = new_queue();
+	pthread_t writer_thread;
+	lst = lst_new();
+	writing_queue = new_queue();
 
 	/* Initialize synchronization objects */
-  pthread_mutex_init_(&mutex, NULL);
-  sem_init_(&maxChilds, 0, MAXPAR); /* semaphore initialized to MAXPAR */
-  sem_init_(&noChilds, 0, 0);
+	pthread_mutex_init_(&mutex, NULL);
+	pthread_cond_init_(&write_cond, 0);
+	pthread_cond_init_(&max_par, NULL);
+	pthread_cond_init_(&new_child, NULL);
 
-	/* Create Thread */
-  pthread_create_(&monitor_thread, NULL, (void *) monitor, NULL);
+	if ((log_fd = fopen("./log.txt", "a+")) == NULL){
+		perror("[ERROR] opening log file");
+		exit(EXIT_FAILURE);
+	}
+	read_log(); /* assign total time and iteration values for this execution */
+	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL); /* Create Monitor Thread */  
+	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL); /* Create Writer Thread */
+ 
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
 		if (numArgs <= 0) {
 			continue;
-    }
+		}
 		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) {
 
 			/* signal exit command */
 			exit_command = 1;
 
 			/* wait for monitor thread to end */
-      sem_post_(&noChilds);
+			pthread_cond_signal_(&new_child); /* must signal to catch exit flag */
 			pthread_join_(monitor_thread, NULL);
+			pthread_join_(writer_thread, NULL);
 
-      /* print all the elements in the list and free their memory */
-			while ((temp = dequeue(q_list)) != NULL) {
-				printf("PID: %d, STATUS: %d, DURATION: %ld SECONDS\n", temp->process_pid,
-						temp->status, temp->end - temp->start);
-				free(temp);
-			}
+			/* print all the elements in the list */
+			lst_print(lst);
 			
 			/* terminate sync objects */
 			pthread_mutex_destroy_(&mutex);
-			sem_destroy_(&maxChilds);
-      sem_destroy_(&noChilds);
-
-			free(q_list);
+			pthread_cond_destroy_(&write_cond);
+			pthread_cond_destroy_(&max_par);
+			pthread_cond_destroy_(&new_child);
+			fclose(log_fd);
+			lst_destroy(lst);
 			exit(EXIT_SUCCESS);
 		}
 
-    /* while there are child process slots available launch new child process,
-     * else wait here */
-    sem_wait_(&maxChilds);
+		/* while there are child process slots available launch new child process,
+		* else wait here */
 
-    child_pid = fork(); // testar erro no fork
-    if (child_pid == 0){ /* execute on child */
-      if (execv(arg_vector[0], arg_vector) == -1) {
-        perror("[ERROR] executing program.");
-        exit(EXIT_FAILURE);
-          }
-    }
-    else if (child_pid == -1) {
-      perror("[ERROR] fork error.");
-      continue;
-    }
-    else { /* execute on parent */
-      /*
-       * Main thread
-       *
-       * Child processes are registered into the queue saving their pid
-       * and their start time.
-       * Child counter is incremented.
-       * The semaphore controlling maximum parallel children is decremented.
-       */
-      time(&start_time); /* get start time of child process */
-      pthread_mutex_lock_(&mutex);
-      enqueue(q_list, child_pid, start_time);
-      child_count++;
-      pthread_mutex_unlock_(&mutex);
-      sem_post_(&noChilds);
-    }
+		pthread_mutex_lock(&mutex);
+		if (child_count >= MAXPAR) {
+			pthread_cond_wait_(&max_par, &mutex);
+		}
+		pthread_mutex_unlock_(&mutex);
+
+		child_pid = fork();
+		if (child_pid < 0){ /* test for error in fork */
+			perror("[ERROR] forking process");
+			continue;
+		}
+		if (child_pid == 0){ /* execute on child */
+			if (execv(arg_vector[0], arg_vector) == -1) {
+			perror("[ERROR] executing program.");
+			exit(EXIT_FAILURE);
+			}
+		}
+		else { /* execute on parent */
+			/* Main thread
+			 *
+			 * Child processes are inserted into the process list saving their pid
+			 * and their start time.
+			 * Child counter is incremented.
+			 * The condition variable waiting for a new child process is signaled.
+ 			 */
+			time(&starttime); /* get start time of child process */
+			pthread_mutex_lock_(&mutex);
+			insert_new_process(lst, child_pid, starttime);
+			child_count++;
+			pthread_mutex_unlock_(&mutex);
+			pthread_cond_signal_(&new_child);
+		}
 	}
 }
 
@@ -128,33 +145,93 @@ int main(int argc, char **argv){
  * If there are no children, monitor thread is suspended waiting for any new
  * child process.
  * ---------------------------------------------------------- */
-int monitor(void) {
+void *monitor(void) {
 	int child_pid;
 	int child_status;
-	node_l * temp = NULL;
+	time_t endtime;
 
 	while (1) {
-    sem_wait_(&noChilds); /* wait for a new child process */
+		pthread_mutex_lock_(&mutex);
+		if (child_count <= 0) {
+			pthread_cond_wait_(&new_child, &mutex);
+		}
+		pthread_mutex_unlock_(&mutex);
 
+		child_pid = wait(&child_status);
+		time(&endtime);
 
-    pthread_mutex_lock_(&mutex);
-    if (child_count > 0) {
-      pthread_mutex_unlock_(&mutex);
+		pthread_mutex_lock_(&mutex);
+		/*pthread_cond_wait_(&write_cond, &mutex);*/
+		update_terminated_process(lst, child_pid, endtime, child_status);
+		enqueue(writing_queue, child_pid); /* put process on hold to be written */
+		--child_count;
+		pthread_cond_signal_(&write_cond);
+		pthread_mutex_unlock_(&mutex);
 
-      child_pid = wait(&child_status);
+		pthread_cond_signal_(&max_par);
 
-      pthread_mutex_lock_(&mutex);
-      temp = find_pid(q_list, child_pid);
-      temp->status = child_status;
-      time(&temp->end);
-      --child_count;
-      pthread_mutex_unlock_(&mutex);
-
-      sem_post_(&maxChilds);
-    }
-    else if (exit_command != 0) {
-      pthread_mutex_unlock_(&mutex);
+		pthread_mutex_lock_(&mutex);
+		if (exit_command != 0 && child_count <= 0) {
+			pthread_mutex_unlock_(&mutex);
 			pthread_exit(NULL);
-    }
+		}
+		pthread_mutex_unlock_(&mutex);
 	}
+}
+
+/* ----------------------------------------------------------
+ * Writer Thread
+ *
+ * Writes to log file 
+ * ---------------------------------------------------------- */
+void *writer(void){
+	int pid, time_diff, total_execution_time_local, iteration_local;
+
+	while (1){
+		pthread_mutex_lock_(&mutex);
+		/* wait for a condition */
+		while (writing_queue->head == NULL) pthread_cond_wait_(&write_cond, &mutex);
+		pid = dequeue(writing_queue); /* remove element to be written */
+		time_diff = get_time_diff(lst, pid); /* calculate time execution time */
+
+		/* increment variables */
+		total_execution_time += time_diff;
+		iteration++;
+
+		/* put variables locally */
+		iteration_local = iteration;
+		total_execution_time_local = total_execution_time;
+		pthread_mutex_unlock_(&mutex);
+
+		/* write to file */
+		fprintf(log_fd, "iteracao %d\npid: %d execution time: %d s\ntotal execution time: %d s\n",iteration_local, pid, time_diff, total_execution_time_local);
+		fflush(log_fd);
+
+		/* exit thread */
+		pthread_mutex_lock_(&mutex);
+		if (exit_command != 0 && child_count == 0){
+			pthread_mutex_unlock_(&mutex);
+			pthread_exit(NULL);		
+		}
+		pthread_mutex_unlock_(&mutex);
+	}
+}
+
+/* ----------------------------------------------------------
+ * Read Log File
+ * Read log file to set total time and iteration values
+ * ---------------------------------------------------------- */
+void read_log(void){
+	char iteration_buff[LOG_TEMP_BUFF];
+	char pid_buff[LOG_TEMP_BUFF];
+	char time_buff[LOG_TEMP_BUFF];
+	
+	/* read all the lines, the ones left are the last ones to read */
+	while ((fgets(iteration_buff, LOG_TEMP_BUFF, log_fd) != NULL) &&
+		   (fgets(pid_buff, LOG_TEMP_BUFF, log_fd) != NULL) &&
+		   (fgets(time_buff, LOG_TEMP_BUFF, log_fd) != NULL))
+		{continue;}
+	/* interpret read buffers */
+	sscanf(iteration_buff, "iteracao %d\n", &iteration);
+	sscanf(time_buff, "total execution time: %d s\n", &total_execution_time);
 }
