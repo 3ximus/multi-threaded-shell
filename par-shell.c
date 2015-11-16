@@ -5,7 +5,6 @@
 * Sistemas Operativos 2015
 ---------------------------------------------------------- */
 
-
 /* System Includes */
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +24,7 @@
 
 /* Defines */
 #define VECTOR_SIZE		7 /* program name + 5 arguments */
-#define MAXPAR			4
+#define MAXPAR			3
 #define EXIT_COMMAND	"exit"
 #define BUFFER_SIZE		100
 #define LOG_TEMP_BUFF	50
@@ -73,9 +72,8 @@ int main(int argc, char **argv){
  
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
-		if (numArgs <= 0) {
-			continue;
-		}
+		if (numArgs <= 0)continue;
+
 		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) {
 
 			/* signal exit command */
@@ -101,11 +99,8 @@ int main(int argc, char **argv){
 
 		/* while there are child process slots available launch new child process,
 		* else wait here */
-
-		pthread_mutex_lock(&mutex);
-		if (child_count >= MAXPAR) {
-			pthread_cond_wait_(&max_par, &mutex);
-		}
+		pthread_mutex_lock_(&mutex);
+		while (child_count >= MAXPAR) pthread_cond_wait_(&max_par, &mutex);
 		pthread_mutex_unlock_(&mutex);
 
 		child_pid = fork();
@@ -131,8 +126,8 @@ int main(int argc, char **argv){
 			pthread_mutex_lock_(&mutex);
 			insert_new_process(lst, child_pid, starttime);
 			child_count++;
-			pthread_mutex_unlock_(&mutex);
 			pthread_cond_signal_(&new_child);
+			pthread_mutex_unlock_(&mutex);
 		}
 	}
 }
@@ -152,23 +147,19 @@ void *monitor(void) {
 
 	while (1) {
 		pthread_mutex_lock_(&mutex);
-		if (child_count <= 0) {
-			pthread_cond_wait_(&new_child, &mutex);
-		}
+		while (child_count <= 0)pthread_cond_wait_(&new_child, &mutex);
 		pthread_mutex_unlock_(&mutex);
 
 		child_pid = wait(&child_status);
 		time(&endtime);
 
 		pthread_mutex_lock_(&mutex);
-		/*pthread_cond_wait_(&write_cond, &mutex);*/
 		update_terminated_process(lst, child_pid, endtime, child_status);
 		enqueue(writing_queue, child_pid); /* put process on hold to be written */
 		--child_count;
 		pthread_cond_signal_(&write_cond);
-		pthread_mutex_unlock_(&mutex);
-
 		pthread_cond_signal_(&max_par);
+		pthread_mutex_unlock_(&mutex);
 
 		pthread_mutex_lock_(&mutex);
 		if (exit_command != 0 && child_count <= 0) {
