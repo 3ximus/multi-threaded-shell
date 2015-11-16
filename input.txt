@@ -1,12 +1,7 @@
 fibonacci 10000
-fibonacci 13330
-fibonacci 17000
-fibonacci 15000
 fibonacci 10000
-fibonacci 12000
-fibonacci 14000
-fibonacci 14000
-fibonacci 11000
-fibonacci 18000
+fibonacci 10000
+fibonacci 10000
+fibonacci 10000
 fibonacci 10000
 exit
