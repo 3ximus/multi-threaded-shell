@@ -3,6 +3,9 @@
 
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 /* --------------------------------------------------------------------------
  * Threads error checking
@@ -65,5 +68,21 @@ void pthread_cond_signal_(pthread_cond_t*);
 
 /* pthread_cond_destroy */
 void pthread_cond_destroy_(pthread_cond_t*);
+
+
+/* --------------------------------------------------------------------------
+ * File operations
+ * -------------------------------------------------------------------------- */
+
+/* dup */
+int dup_(int fd);
+
+/* open */
+int open_(const char* filename, int oflag);
+
+/* close */
+int close_(int fd);
+
+
 
 #endif

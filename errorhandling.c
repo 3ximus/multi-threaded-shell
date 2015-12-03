@@ -7,10 +7,10 @@
  *
  * Error handling.
  */
-#include <pthread.h>
-#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
+#include "errorhandling.h"
 
 /* --------------------------------------------------------------------------
  * Threads error checking
@@ -134,7 +134,7 @@ sem_destroy_(sem_t * sem)
 
 /* pthread_mutex_init */
 void
-pthread_cond_init_(pthread_cond_t * cond, pthread_condattr_t * attr)
+pthread_cond_init_(pthread_cond_t * cond, const pthread_condattr_t * attr)
 {
 	if ((pthread_cond_init(cond, attr)) != 0) {
 		fprintf(stderr, "[ERROR] cond initialization error.\n");
@@ -171,3 +171,38 @@ pthread_cond_destroy_(pthread_cond_t * cond)
 		exit(EXIT_FAILURE);
 	}
 }
+
+/* --------------------------------------------------------------------------
+ * File operations
+ * -------------------------------------------------------------------------- */
+
+/* dup */
+int dup_(int in_fd){
+	int fd;
+	if ((fd = dup(in_fd)) == -1){
+		perror("[ERROR] dup error\n");
+		exit(EXIT_FAILURE);
+	}
+	return fd;
+}
+
+/* open */
+int open_(const char* filename, int oflag){
+	int fd;
+	if ((fd = open(filename, oflag)) == -1) {
+		perror("[ERROR] open file error\n");
+		exit(EXIT_FAILURE);
+	}
+	return fd;
+}
+
+/* close */
+int close_(int fd){
+	int ret_val;
+	if ((ret_val = close(fd)) == -1) {
+		perror("[ERROR] closing file error\n");
+		exit(EXIT_FAILURE);
+	}
+	return ret_val;
+}
+

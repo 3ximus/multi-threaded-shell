@@ -10,14 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/file.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <time.h>
 #include <errno.h>
-#include <fcntl.h>
 
 /* Our Includes */
 #include "commandlinereader.h"
@@ -32,6 +30,9 @@
 #define BUFFER_SIZE		100
 #define LOG_TEMP_BUFF	50
 
+#define STDIN			0
+#define STDOUT			1
+#define STDERR			2
 
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
@@ -59,27 +60,16 @@ int main(int argc, char **argv){
 	lst = lst_new();
 	writing_queue = new_queue();
 
-
 	/* Initialize synchronization objects */
 	pthread_mutex_init_(&mutex, NULL);
 	pthread_cond_init_(&write_cond, 0);
 	pthread_cond_init_(&max_par, NULL);
 	pthread_cond_init_(&new_child, NULL);
 
-	/*if ((log_fd = fopen("./log.txt", "a+")) == NULL){
+	if ((log_fd = fopen("./log.txt", "a+")) == NULL){
 		perror("[ERROR] opening log file");
 		exit(EXIT_FAILURE);
-	}*/
-
-
-	//HERE!!!!!!!!!!!!!!!!!!!!!!
-        char filename[60];
-        sprintf(filename, "par-shell-out-%d.txt", fork());
-        log_fd = fopen(filename, "a+");
-
-
-
-	
+	}
 	read_log(); /* assign total time and iteration values for this execution */
 	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL); /* Create Monitor Thread */  
 	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL); /* Create Writer Thread */
@@ -117,19 +107,24 @@ int main(int argc, char **argv){
 		while (child_count >= MAXPAR) pthread_cond_wait_(&max_par, &mutex);
 		pthread_mutex_unlock_(&mutex);
 
-		//HERE!!!!!!!!!!!!
 		child_pid = fork();
-		sprintf(filename, "par-shell-out-%d.txt", child_pid);
-		log_fd = fopen(filename, "w");	
-
 		if (child_pid < 0){ /* test for error in fork */
 			perror("[ERROR] forking process");
 			continue;
 		}
 		if (child_pid == 0){ /* execute on child */
+			int new_stdout_fd;
+			char child_stdout_pathname[20];
+			/* set stdout of child process to be a new file*/
+			sprintf(child_stdout_pathname, "par-shell-out-%d.txt", getpid()); /* format filename */
+			new_stdout_fd = open_(child_stdout_pathname, O_CREAT|O_WRONLY); /* create new file for stdout */
+			chmod(child_stdout_pathname, 0777);
+			close_(STDOUT); /* close child default stdout */
+			dup_(new_stdout_fd); /* reassign new fd */
+			close_(new_stdout_fd); /* close original filedescriptor */
 			if (execv(arg_vector[0], arg_vector) == -1) {
-			perror("[ERROR] executing program.");
-			exit(EXIT_FAILURE);
+				perror("[ERROR] executing program.");
+				exit(EXIT_FAILURE);
 			}
 		}
 		else { /* execute on parent */
