@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/file.h>
@@ -40,8 +41,6 @@ pthread_cond_t new_child;
 list_t *lst;
 queue_l *writing_queue;
 FILE* log_fd;
-//char *pipeps = "par-shell-in";
-//int fd;
 
 /* Forward declaractions */
 void *monitor(void);
@@ -60,13 +59,6 @@ int main(int argc, char **argv){
 	lst = lst_new();
 	writing_queue = new_queue();
 
-	  //mkfifo(pipeps, 0666);
-	  //fd = open(pipes, O_WRONLY);
-   	  //write(fd, "Hi", sizeof("Hi"));
-    	  //close(fd);
-
-    	/* remove the FIFO */
-   	 //unlink(pipes);
 
 	/* Initialize synchronization objects */
 	pthread_mutex_init_(&mutex, NULL);
@@ -74,10 +66,20 @@ int main(int argc, char **argv){
 	pthread_cond_init_(&max_par, NULL);
 	pthread_cond_init_(&new_child, NULL);
 
-	if ((log_fd = fopen("./log.txt", "a+")) == NULL){
+	/*if ((log_fd = fopen("./log.txt", "a+")) == NULL){
 		perror("[ERROR] opening log file");
 		exit(EXIT_FAILURE);
-	}
+	}*/
+
+
+	//HERE!!!!!!!!!!!!!!!!!!!!!!
+        char filename[60];
+        sprintf(filename, "par-shell-out-%d.txt", fork());
+        log_fd = fopen(filename, "a+");
+
+
+
+	
 	read_log(); /* assign total time and iteration values for this execution */
 	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL); /* Create Monitor Thread */  
 	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL); /* Create Writer Thread */
@@ -115,7 +117,11 @@ int main(int argc, char **argv){
 		while (child_count >= MAXPAR) pthread_cond_wait_(&max_par, &mutex);
 		pthread_mutex_unlock_(&mutex);
 
+		//HERE!!!!!!!!!!!!
 		child_pid = fork();
+		sprintf(filename, "par-shell-out-%d.txt", child_pid);
+		log_fd = fopen(filename, "w");	
+
 		if (child_pid < 0){ /* test for error in fork */
 			perror("[ERROR] forking process");
 			continue;
