@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -78,11 +79,10 @@ void pthread_cond_destroy_(pthread_cond_t*);
 int dup_(int fd);
 
 /* open */
-int open_(const char* filename, int oflag);
+int open_(const char* filename, int oflag, mode_t mode);
 
 /* close */
 int close_(int fd);
-
 
 
 #endif

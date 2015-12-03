@@ -187,9 +187,9 @@ int dup_(int in_fd){
 }
 
 /* open */
-int open_(const char* filename, int oflag){
+int open_(const char* filename, int oflag, mode_t mode){
 	int fd;
-	if ((fd = open(filename, oflag)) == -1) {
+	if ((fd = open(filename, oflag, mode)) == -1) {
 		perror("[ERROR] open file error\n");
 		exit(EXIT_FAILURE);
 	}

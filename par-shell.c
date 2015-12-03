@@ -116,7 +116,7 @@ int main(int argc, char **argv){
 			char child_stdout_pathname[20];
 			/* set stdout of child process to be a new file*/
 			sprintf(child_stdout_pathname, "par-shell-out-%d.txt", getpid()); /* format filename */
-			new_stdout_fd = open_(child_stdout_pathname, O_CREAT|O_RDWR); /* create new file for stdout */
+			new_stdout_fd = open_(child_stdout_pathname, O_CREAT|O_RDWR, S_IRUSR); /* create new file for stdout */
 			close_(STDOUT); /* close child default stdout */
 			dup_(new_stdout_fd); /* reassign new fd */
 			close_(new_stdout_fd); /* close original filedescriptor */
