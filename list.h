@@ -1,4 +1,7 @@
 /*
+ * Sistemas Operativos 2015-2016
+ * Grupo 82
+ *
  * list.h - definitions and declarations of the integer list 
  */
 

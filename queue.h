@@ -1,4 +1,7 @@
-/* 
+/*
+ * Sistemas Operativos 2015-2016
+ * Grupo 82
+ *
  * Queue list defenition and implementation
  */
 

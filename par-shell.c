@@ -1,9 +1,11 @@
-
 /* ----------------------------------------------------------
-* Shell Paralela
-* Grupo 82
-* Sistemas Operativos 2015
----------------------------------------------------------- */
+ * Shell Paralela
+ * Grupo 82
+ * Sistemas Operativos 2015
+ * 63572 Pedro Carneiro
+ * 76959 Fábio Almeida
+ * 79764 César Alcobia
+ * ---------------------------------------------------------- */
 
 /* System Includes */
 #include <stdio.h>
@@ -32,6 +34,7 @@
 #define STDIN			0
 #define STDOUT			1
 #define STDERR			2
+#define PIPENAME "par-shell-in"
 
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
@@ -69,6 +72,11 @@ int main(int argc, char **argv){
 		perror("[ERROR] opening log file");
 		exit(EXIT_FAILURE);
 	}
+
+	/* make named pipe to receive input from */
+	mkfifo(PIPENAME, S_IRUSR|S_IWUSR);
+
+
 	read_log(); /* assign total time and iteration values for this execution */
 	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL); /* Create Monitor Thread */  
 	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL); /* Create Writer Thread */
@@ -95,6 +103,7 @@ int main(int argc, char **argv){
 			pthread_cond_destroy_(&write_cond);
 			pthread_cond_destroy_(&max_par);
 			pthread_cond_destroy_(&new_child);
+			unlink(PIPENAME); /* remove named pipe */
 			fclose(log_fd);
 			lst_destroy(lst);
 			exit(EXIT_SUCCESS);

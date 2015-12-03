@@ -1,3 +1,10 @@
+/*
+ * Sistemas Operativos 2015-2016
+ * Grupo 82
+ *
+ * Error handling Functions header
+ */
+
 #ifndef ERRORHANDLING_H
 #define ERRORHANDLING_H
 

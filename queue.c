@@ -1,10 +1,6 @@
-
 /*
  * Sistemas Operativos 2015-2016
  * Grupo 82
- * 63572 Pedro Carneiro
- * 76959 Fábio Almeida
- * 79764 César Alcobia
  *
  * Queue.
  */
