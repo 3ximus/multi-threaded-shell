@@ -12,9 +12,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/file.h>
 #include <pthread.h>
 #include <time.h>
 #include <errno.h>
+#include <fcntl.h>
 
 /* Our Includes */
 #include "commandlinereader.h"
@@ -38,6 +40,8 @@ pthread_cond_t new_child;
 list_t *lst;
 queue_l *writing_queue;
 FILE* log_fd;
+//char *pipeps = "par-shell-in";
+//int fd;
 
 /* Forward declaractions */
 void *monitor(void);
@@ -55,6 +59,14 @@ int main(int argc, char **argv){
 	pthread_t writer_thread;
 	lst = lst_new();
 	writing_queue = new_queue();
+
+	  //mkfifo(pipeps, 0666);
+	  //fd = open(pipes, O_WRONLY);
+   	  //write(fd, "Hi", sizeof("Hi"));
+    	  //close(fd);
+
+    	/* remove the FIFO */
+   	 //unlink(pipes);
 
 	/* Initialize synchronization objects */
 	pthread_mutex_init_(&mutex, NULL);

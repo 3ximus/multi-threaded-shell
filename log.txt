@@ -1,0 +1,18 @@
+iteracao 1
+pid: 7157 execution time: 7 s
+total execution time: 7 s
+iteracao 2
+pid: 7156 execution time: 7 s
+total execution time: 14 s
+iteracao 3
+pid: 7155 execution time: 7 s
+total execution time: 21 s
+iteracao 4
+pid: 7159 execution time: 6 s
+total execution time: 27 s
+iteracao 5
+pid: 7160 execution time: 6 s
+total execution time: 33 s
+iteracao 6
+pid: 7161 execution time: 6 s
+total execution time: 39 s
