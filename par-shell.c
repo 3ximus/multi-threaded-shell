@@ -29,6 +29,9 @@
 #define BUFFER_SIZE		100
 #define LOG_TEMP_BUFF	50
 
+#define STDIN			0
+#define STDOUT			1
+#define STDERR			2
 
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 pthread_mutex_t mutex;
@@ -109,9 +112,17 @@ int main(int argc, char **argv){
 			continue;
 		}
 		if (child_pid == 0){ /* execute on child */
+			int new_stdout_fd;
+			char child_stdout_pathname[20];
+			/* set stdout of child process to be a new file*/
+			sprintf(child_stdout_pathname, "par-shell-out-%d.txt", getpid()); /* format filename */
+			new_stdout_fd = open_(child_stdout_pathname, O_CREAT|O_RDWR); /* create new file for stdout */
+			close_(STDOUT); /* close child default stdout */
+			dup_(new_stdout_fd); /* reassign new fd */
+			close_(new_stdout_fd); /* close original filedescriptor */
 			if (execv(arg_vector[0], arg_vector) == -1) {
-			perror("[ERROR] executing program.");
-			exit(EXIT_FAILURE);
+				perror("[ERROR] executing program.");
+				exit(EXIT_FAILURE);
 			}
 		}
 		else { /* execute on parent */

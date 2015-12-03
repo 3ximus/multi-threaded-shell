@@ -2,4 +2,6 @@
 par-shell
 fibonacci
 *.c~
+log.txt
+par-shell-out*.txt
 par-shell.dSYM
