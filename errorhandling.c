@@ -203,3 +203,23 @@ int close_(int fd){
 	return ret_val;
 }
 
+/* mkfifo */
+int mkfifo_(char* pathname, mode_t mode){
+	int ret_val;
+	if ((ret_val = mkfifo(pathname, mode)) == -1){
+		perror("[ERROR] mkfifo error\n");
+		exit(EXIT_FAILURE);
+	}
+	return ret_val;
+}
+
+
+/* unlink */
+int unlink_(char* pathname){
+	int ret_val;
+	if ((ret_val = unlink(pathname)) == -1){
+		perror("[ERROR] unlink error\n");
+		exit(EXIT_FAILURE);
+	}
+	return ret_val;
+}

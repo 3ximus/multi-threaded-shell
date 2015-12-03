@@ -11,9 +11,11 @@
 CC=gcc
 CFLAGS=-Wall
 
-all: par-shell fibonacci
+all: par-shell fibonacci par-shell-terminal
 par-shell: par-shell.c commandlinereader.o list.o errorhandling.o queue.o
 	$(CC) $(CFLAGS) -o par-shell par-shell.c commandlinereader.o list.o errorhandling.o queue.o -pthread
+par-shell-terminal: par-shell-terminal.c commandlinereader.o errorhandling.o
+	$(CC) $(CFLAGS) -o par-shell-terminal par-shell-terminal.c commandlinereader.o errorhandling.o -pthread
 commandlinereader.o: commandlinereader.c
 	$(CC) $(CFLAGS) -c commandlinereader.c
 list.o: list.c
@@ -27,4 +29,4 @@ fibonacci: fibonacci.c
 debug: par-shell.c commandlinereader.o list.o errorhandling.o queue.o
 	$(CC) $(CFLAGS) -g -o par-shell par-shell.c commandlinereader.o list.o errorhandling.o queue.o -pthread
 clean:
-	rm -f par-shell *.o fibonacci
+	rm -f par-shell *.o fibonacci par-shell-terminal

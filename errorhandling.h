@@ -91,5 +91,11 @@ int open_(const char* filename, int oflag, mode_t mode);
 /* close */
 int close_(int fd);
 
+/* mkfifo */
+int mkfifo_(char* pathname, mode_t mode);
+
+/* unlink */
+int unlink_(char* pathname);
+
 
 #endif

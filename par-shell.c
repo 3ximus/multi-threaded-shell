@@ -51,8 +51,8 @@ void *writer(void);
 void read_log(void);
 
 int main(int argc, char **argv){
-	char buffer[BUFFER_SIZE];
 	int numArgs;
+	char buffer[BUFFER_SIZE];
 	char *arg_vector[VECTOR_SIZE];
 	time_t starttime;
 	
@@ -74,7 +74,7 @@ int main(int argc, char **argv){
 	}
 
 	/* make named pipe to receive input from */
-	mkfifo(PIPENAME, S_IRUSR|S_IWUSR);
+	mkfifo_(PIPENAME, S_IRUSR|S_IWUSR);
 
 
 	read_log(); /* assign total time and iteration values for this execution */
@@ -103,14 +103,14 @@ int main(int argc, char **argv){
 			pthread_cond_destroy_(&write_cond);
 			pthread_cond_destroy_(&max_par);
 			pthread_cond_destroy_(&new_child);
-			unlink(PIPENAME); /* remove named pipe */
+			unlink_(PIPENAME); /* remove named pipe */
 			fclose(log_fd);
 			lst_destroy(lst);
 			exit(EXIT_SUCCESS);
 		}
 
 		/* while there are child process slots available launch new child process,
-		* else wait here */
+		 * else wait here */
 		pthread_mutex_lock_(&mutex);
 		while (child_count >= MAXPAR) pthread_cond_wait_(&max_par, &mutex);
 		pthread_mutex_unlock_(&mutex);

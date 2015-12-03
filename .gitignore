@@ -1,5 +1,6 @@
 *.o
 par-shell
+par-shell-terminal
 fibonacci
 *.c~
 log.txt
