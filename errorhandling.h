@@ -97,5 +97,10 @@ int mkfifo_(char* pathname, mode_t mode);
 /* unlink */
 int unlink_(char* pathname);
 
+/* read */
+ssize_t read_(int fd, void *buffer, size_t count);
+
+/* write */
+ssize_t write_(int fd, const void *buffer, size_t count);
 
 #endif

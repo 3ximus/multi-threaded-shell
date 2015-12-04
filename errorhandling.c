@@ -78,8 +78,6 @@ pthread_mutex_destroy_(pthread_mutex_t * mutex)
 	}
 }
 
-
-
 /* --------------------------------------------------------------------------
  * Semaphores error checking
  * -------------------------------------------------------------------------- */
@@ -123,7 +121,6 @@ sem_destroy_(sem_t * sem)
 		exit(EXIT_FAILURE);
 	}
 }
-
 
 /* --------------------------------------------------------------------------
  * Conditions error checking
@@ -197,7 +194,7 @@ int open_(const char* filename, int oflag, mode_t mode){
 int close_(int fd){
 	int ret_val;
 	if ((ret_val = close(fd)) == -1) {
-		perror("[ERROR] closing file error\n");
+		perror("[ERROR] close file error\n");
 		exit(EXIT_FAILURE);
 	}
 	return ret_val;
@@ -219,6 +216,26 @@ int unlink_(char* pathname){
 	int ret_val;
 	if ((ret_val = unlink(pathname)) == -1){
 		perror("[ERROR] unlink error\n");
+		exit(EXIT_FAILURE);
+	}
+	return ret_val;
+}
+
+/* read */
+ssize_t read_(int fd, void *buffer, size_t count){
+	ssize_t ret_val;
+	if ((ret_val = read(fd, buffer, count)) == -1){
+		perror("[ERROR] read error\n");
+		exit(EXIT_FAILURE);
+	}
+	return ret_val;
+}
+
+/* write */
+ssize_t write_(int fd, const void *buffer, size_t count){
+	ssize_t ret_val;
+	if ((ret_val = write(fd, buffer, count)) == -1){
+		perror("[ERROR] write error\n");
 		exit(EXIT_FAILURE);
 	}
 	return ret_val;

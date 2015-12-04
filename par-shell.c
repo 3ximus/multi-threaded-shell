@@ -52,6 +52,7 @@ void read_log(void);
 
 int main(int argc, char **argv){
 	int numArgs;
+	int in_fd; /* replacement for stdin */
 	char buffer[BUFFER_SIZE];
 	char *arg_vector[VECTOR_SIZE];
 	time_t starttime;
@@ -73,17 +74,21 @@ int main(int argc, char **argv){
 		exit(EXIT_FAILURE);
 	}
 
-	/* make named pipe to receive input from */
-	mkfifo_(PIPENAME, S_IRUSR|S_IWUSR);
-
+	/* replace stdin */
+	mkfifo_(PIPENAME, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP); /* make named pipe to receive input from */
+	in_fd = open_(PIPENAME, O_RDONLY, S_IRUSR); /* create new file for stdin */
+	close_(STDIN); /* close stdin to prepare to receive commands through the named pipe */
+	dup2(in_fd, STDIN); /* make duplicate of in_fd and assign to lowest numbered unused file descriptor (stdin) */
+	close_(in_fd); /* since we now have a copy of this for stdin we dont need the original */
 
 	read_log(); /* assign total time and iteration values for this execution */
 	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL); /* Create Monitor Thread */  
 	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL); /* Create Writer Thread */
  
+ 	printf("\033[1;32mPar-Shell Connected to %s\033[0m\nRunning...", PIPENAME);
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
-		if (numArgs <= 0)continue;
+		if (numArgs <= 0) continue;
 
 		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) {
 
@@ -109,6 +114,8 @@ int main(int argc, char **argv){
 			exit(EXIT_SUCCESS);
 		}
 
+		/* INTERPRET ANY OTHER COMMAND GIVEN AND LAUNCH NEW PROCESS */
+
 		/* while there are child process slots available launch new child process,
 		 * else wait here */
 		pthread_mutex_lock_(&mutex);
@@ -127,7 +134,7 @@ int main(int argc, char **argv){
 			sprintf(child_stdout_pathname, "par-shell-out-%d.txt", getpid()); /* format filename */
 			new_stdout_fd = open_(child_stdout_pathname, O_CREAT|O_RDWR, S_IRUSR); /* create new file for stdout */
 			close_(STDOUT); /* close child default stdout */
-			dup_(new_stdout_fd); /* reassign new fd */
+			dup_(new_stdout_fd); /* make suplicate of new_fd and assign it to lowest numbered unused file descriptor, in this case STDOUT wich has been closed */
 			close_(new_stdout_fd); /* close original filedescriptor */
 			if (execv(arg_vector[0], arg_vector) == -1) {
 				perror("[ERROR] executing program.");
