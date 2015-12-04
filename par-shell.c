@@ -28,8 +28,12 @@
 #define VECTOR_SIZE		7 /* program name + 5 arguments */
 #define MAXPAR			3
 #define EXIT_COMMAND	"exit"
+#define STATS_COMMAND 	"stats"
+#define OPEN_T_COMMAND 	"__new_term__"
+#define CLOSE_T_COMMAND 	"__close_term__"
 #define BUFFER_SIZE		100
 #define LOG_TEMP_BUFF	50
+#define MAX_TERMINAL	20
 
 #define STDIN			0
 #define STDOUT			1
@@ -50,10 +54,13 @@ void *monitor(void);
 void *writer(void);
 void read_log(void);
 void sigint_handler(int x);
+void open_terminal(int term_id, int *open_terminals);
+void close_terminal(int term_id, int *open_terminals);
 
 int main(int argc, char **argv){
 	int numArgs;
-	int in_fd; /* replacement for stdin */
+	int pipe_fd; /* replacement for stdin */
+	int open_terminals[MAX_TERMINAL];
 	char buffer[BUFFER_SIZE];
 	char *arg_vector[VECTOR_SIZE];
 	time_t starttime;
@@ -76,11 +83,11 @@ int main(int argc, char **argv){
 	}
 
 	/* replace stdin */
-	mkfifo_(PIPENAME, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP); /* make named pipe to receive input from */
-	in_fd = open_(PIPENAME, O_RDONLY, S_IRUSR); /* create new file for stdin */
+	mkfifo_(PIPENAME, S_IRUSR|S_IWUSR); /* make named pipe to receive input from */
+	pipe_fd = open_(PIPENAME, O_RDWR, S_IRUSR|S_IWUSR); /* create new file for stdin */
 	close_(STDIN); /* close stdin to prepare to receive commands through the named pipe */
-	dup2(in_fd, STDIN); /* make duplicate of in_fd and assign to lowest numbered unused file descriptor (stdin) */
-	close_(in_fd); /* since we now have a copy of this for stdin we dont need the original */
+	dup2(pipe_fd, STDIN); /* make duplicate of pipe_fd and assign to lowest numbered unused file descriptor (stdin) */
+	close_(pipe_fd); /* since we now have a copy of this for stdin we dont need the original */
 
 	/* Initialize signal handler */
 	if (signal(SIGINT, sigint_handler) == SIG_ERR) perror("[ERROR] Couldn't catch SIGINT");
@@ -93,6 +100,22 @@ int main(int argc, char **argv){
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
 		if (numArgs <= 0) continue;
+		if (strcmp(arg_vector[0], OPEN_T_COMMAND) == 0 ) {
+			int term_id = atoi(arg_vector[1]);	
+			open_terminal(term_id, open_terminals);
+			printf("\033[1;33m[NOTIFY]\033[0m New Terminal open with pid %d.\n", term_id);
+			continue;
+		}
+		if (strcmp(arg_vector[0], CLOSE_T_COMMAND) == 0 ) {
+			int term_id = atoi(arg_vector[1]);	
+			close_terminal(term_id, open_terminals);
+			printf("\033[1;33m[NOTIFY]\033[0m Terminal with pid %d closed.\n", term_id);
+			continue;
+		}
+		if (strcmp(arg_vector[0], STATS_COMMAND) == 0 ) {
+			write_(pipe_fd, "HELLO\n", 7);
+			continue;
+		}
 
 		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) {
 
@@ -102,6 +125,7 @@ int main(int argc, char **argv){
 			/* wait for monitor thread to end */
 			pthread_cond_signal_(&new_child); /* must signal to catch exit flag */
 			pthread_join_(monitor_thread, NULL);
+			pthread_cond_signal_(&write_cond); /* must signal to catch exit flag */
 			pthread_join_(writer_thread, NULL);
 
 			/* print all the elements in the list */
@@ -269,5 +293,32 @@ void sigint_handler(int x){
 	printf("\033[1;31mReceived SIGINT. Killing all par-shell-terminal processes.\033[0m\n");
 	fflush(stdout);
 	// KILL ALL PROCESSES
+	unlink_(PIPENAME);
 	exit(EXIT_FAILURE);
 }
+
+
+/* ----------------------------------------------------------
+ * Marks a new terminal as open on the list
+ * ---------------------------------------------------------- */
+void open_terminal(int term_id, int *open_terminals){
+	for (int i = 0; i < MAX_TERMINAL; i++) {
+		if (open_terminals[i] == 0){
+			open_terminals[i] = term_id;
+			break;
+		}
+	}
+}
+
+/* ----------------------------------------------------------
+ * Marks a new terminal as closed on the list
+ * ---------------------------------------------------------- */
+void close_terminal(int term_id, int *open_terminals){
+	for (int i = 0; i < MAX_TERMINAL; i++) {
+		if (open_terminals[i] == term_id){
+			open_terminals[i] = 0;
+			break;
+		}
+	}
+}
+

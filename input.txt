@@ -4,4 +4,4 @@ fibonacci 10000
 fibonacci 10000
 fibonacci 10000
 fibonacci 10000
-exit
+exit-global
