@@ -49,6 +49,7 @@ FILE* log_fd;
 void *monitor(void);
 void *writer(void);
 void read_log(void);
+void sigint_handler(int x);
 
 int main(int argc, char **argv){
 	int numArgs;
@@ -81,11 +82,14 @@ int main(int argc, char **argv){
 	dup2(in_fd, STDIN); /* make duplicate of in_fd and assign to lowest numbered unused file descriptor (stdin) */
 	close_(in_fd); /* since we now have a copy of this for stdin we dont need the original */
 
+	/* Initialize signal handler */
+	if (signal(SIGINT, sigint_handler) == SIG_ERR) perror("[ERROR] Couldn't catch SIGINT");
+
 	read_log(); /* assign total time and iteration values for this execution */
 	pthread_create_(&monitor_thread, NULL, (void *)&monitor, NULL); /* Create Monitor Thread */  
 	pthread_create_(&writer_thread, NULL, (void *)&writer, NULL); /* Create Writer Thread */
  
- 	printf("\033[1;32mPar-Shell Connected to %s\033[0m\nRunning...", PIPENAME);
+ 	printf("\033[1;32mPar-Shell Connected to %s\033[0m\nRunning...\n", PIPENAME);
 	while (1) {
 		numArgs = readLineArguments(arg_vector, VECTOR_SIZE, buffer, BUFFER_SIZE);
 		if (numArgs <= 0) continue;
@@ -109,6 +113,8 @@ int main(int argc, char **argv){
 			pthread_cond_destroy_(&max_par);
 			pthread_cond_destroy_(&new_child);
 			unlink_(PIPENAME); /* remove named pipe */
+
+			/* terminate other processes connected to the pipe (par-shell-terminal) */
 			fclose(log_fd);
 			lst_destroy(lst);
 			exit(EXIT_SUCCESS);
@@ -252,4 +258,16 @@ void read_log(void){
 	/* interpret read buffers */
 	sscanf(iteration_buff, "iteracao %d\n", &iteration);
 	sscanf(time_buff, "total execution time: %d s\n", &total_execution_time);
+}
+
+
+/* ----------------------------------------------------------
+ * Handle the signal SIGINT
+ * Causes all other par-shell-terminal to terminate abruptly
+ * ---------------------------------------------------------- */
+void sigint_handler(int x){
+	printf("\033[1;31mReceived SIGINT. Killing all par-shell-terminal processes.\033[0m\n");
+	fflush(stdout);
+	// KILL ALL PROCESSES
+	exit(EXIT_FAILURE);
 }

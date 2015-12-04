@@ -19,8 +19,9 @@
  /* Defines */
 #define VECTOR_SIZE		7 /* program name + 5 arguments */
 #define PATHNAME_SIZE 20
-#define EXIT_COMMAND "exit"
-#define STAT_COMMAND "stats"
+#define EXIT_COMMAND "exit\n"
+#define STAT_COMMAND "stats\n"
+#define EXIT_GLOBAL_COMMAND "exit-global\n"
 #define BUFFER_SIZE		100
  
 int main(int argc, char** argv){
@@ -42,21 +43,27 @@ int main(int argc, char** argv){
 
 	while ((nbytes = getline(&buffer, &size, stdin)) > 0) {
 		if (strcmp(buffer, EXIT_COMMAND) == 0 ) {
+			free(buffer);
 			close_(pipe_fd);
+			printf("Exiting...\n");
 			exit(EXIT_SUCCESS);
 		}
 		if (strcmp(buffer,  STAT_COMMAND) == 0 ) {
-
+			strcpy(buffer, "stats\n"); /* puts the stats command on the buffer so par-shell returns her stats */
+		}
+		if (strcmp(buffer, EXIT_GLOBAL_COMMAND) == 0 ) {
+			strcpy(buffer, "exit\n"); /* puts the exit command on the buffer so par-shell exits */
+			printf("Terminating par-shell...\n");
 		}
 		
 		/* INTERPRET ANY OTHER COMMAND GIVEN AND SEND IT TO THE FIFO TO BE READ BY PAR-SHELL */
 
+		/* writes whatever the buffer contains */
 		while (write_(pipe_fd, buffer, strlen(buffer)) != nbytes){
 			fprintf(stderr, "[ERROR] writing to FIFO\n");
 			exit(EXIT_FAILURE);
 		}
 	}
-	free(buffer);
 	return 0;
 }
 
