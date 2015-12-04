@@ -41,6 +41,7 @@
 #define PIPENAME "par-shell-in"
 
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
+int open_terminals[MAX_TERMINAL];
 pthread_mutex_t mutex;
 pthread_cond_t write_cond;
 pthread_cond_t max_par;
@@ -60,7 +61,6 @@ void close_terminal(int term_id, int *open_terminals);
 int main(int argc, char **argv){
 	int numArgs;
 	int pipe_fd; /* replacement for stdin */
-	int open_terminals[MAX_TERMINAL];
 	char buffer[BUFFER_SIZE];
 	char *arg_vector[VECTOR_SIZE];
 	time_t starttime;
@@ -293,8 +293,11 @@ void sigint_handler(int x){
 	printf("\033[1;31mReceived SIGINT. Killing all par-shell-terminal processes.\033[0m\n");
 	fflush(stdout);
 	// KILL ALL PROCESSES
-	unlink_(PIPENAME);
-	exit(EXIT_FAILURE);
+	for (int i = 0; i < MAX_TERMINAL; i++)
+		if (open_terminals[i] != 0)
+			kill(open_terminals[i], SIGINT);
+	unlink_(PIPENAME); /* TO REMOVE */
+	exit(EXIT_FAILURE); /* TO REMOVE */
 }
 
 
