@@ -13,7 +13,6 @@
 #include <sys/types.h>
 
 /* Our Includes */
-#include "commandlinereader.h"
 #include "errorhandling.h"
 
  /* Defines */
@@ -26,6 +25,7 @@
 #define STDIN				0
 #define STDOUT				1
 #define STDERR				2
+#define STATS_BUFFER_SIZE	40
  
 int main(int argc, char** argv){
 	int pipe_fd;
@@ -34,6 +34,7 @@ int main(int argc, char** argv){
 	char *buffer;
 	char pid_buffer[20];
 	char pipename[PATHNAME_SIZE];
+	char stats_buffer[STATS_BUFFER_SIZE];
 
 	if (argc != 2) { /* read arguments */
 		printf("Usage ./par-shell-terminal <named-pipe>");
@@ -43,7 +44,7 @@ int main(int argc, char** argv){
 	strncpy(pipename, argv[1],PATHNAME_SIZE);
 	
 	/* try to open FIFO, if unexistent par-shell-terminal will exit with error */
-	pipe_fd = open_(pipename, O_WRONLY, S_IWUSR);
+	pipe_fd = open_(pipename, O_RDWR, S_IWUSR|S_IRUSR);
 
 	/* notify par-shell that a new terminal has been opened */
 	sprintf(pid_buffer, "__new_term__ %d\n", getpid());
@@ -60,19 +61,27 @@ int main(int argc, char** argv){
 			exit(EXIT_SUCCESS);
 		}
 		if (strcmp(buffer,  STATS_COMMAND) == 0 ) {
-			strcpy(buffer, "stats\n"); /* puts the stats command on the buffer so par-shell returns her stats */
-			/* read_(pipe_fd) */
+			int term_id, child_count, total_execution_time;
+			char *cwd = getcwd(NULL, 0);
+			sprintf(buffer, "stats %d\n", getpid()); /* send stats command and pid through the pipe so par-shell returns her stats */
+			write_(pipe_fd, buffer, strlen(buffer)); /* writes buffer into the pipe */
+			sleep(1); /* wait for par-shell to respond */
+			while(read_(pipe_fd, stats_buffer, STATS_BUFFER_SIZE) == 0);
+			sscanf(stats_buffer, "__stats__ %d child %d total %d",
+					&term_id, &child_count, &total_execution_time);
+			if (term_id == getpid())
+				printf("Stats:\tPID: %d Path: %s\n\tParShell:\tCurrent running processes: %d\n\t\t\tTotal execution time: %d\n", getpid(), cwd, child_count, total_execution_time);
+			else printf("[ERROR] Something went wrong with your request. Try again");
+			free(cwd);
+			continue;
 		}
 		if (strcmp(buffer, EXIT_GLOBAL_COMMAND) == 0 ) {
 			strcpy(buffer, "exit\n"); /* puts the exit command on the buffer so par-shell exits */
-			printf("Terminating par-shell...\n");
+			printf("Terminating par-shell...\n"); /* writes buffer into the pipe */
+			write_(pipe_fd, buffer, strlen(buffer));
 		}
-		
-		/* INTERPRET ANY OTHER COMMAND GIVEN AND SEND IT TO THE FIFO TO BE READ BY PAR-SHELL */
-
-		/* writes whatever the buffer contains */
+		/* everything else is sent to the pipe to be interpreted as a command by the par-shell */
 		write_(pipe_fd, buffer, strlen(buffer));
 	}
-	return 0;
 }
 

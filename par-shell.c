@@ -34,11 +34,11 @@
 #define BUFFER_SIZE		100
 #define LOG_TEMP_BUFF	50
 #define MAX_TERMINAL	20
-
+#define STATS_BUFFER_SIZE	40
 #define STDIN			0
 #define STDOUT			1
 #define STDERR			2
-#define PIPENAME "par-shell-in"
+#define PIPENAME		"par-shell-in"
 
 int child_count = 0, exit_command = 0, total_execution_time = 0, iteration = 0;
 int open_terminals[MAX_TERMINAL];
@@ -87,7 +87,7 @@ int main(int argc, char **argv){
 	pipe_fd = open_(PIPENAME, O_RDWR, S_IRUSR|S_IWUSR); /* create new file for stdin */
 	close_(STDIN); /* close stdin to prepare to receive commands through the named pipe */
 	dup2(pipe_fd, STDIN); /* make duplicate of pipe_fd and assign to lowest numbered unused file descriptor (stdin) */
-	close_(pipe_fd); /* since we now have a copy of this for stdin we dont need the original */
+	/*close_(pipe_fd);  we now have a copy of this for stdin we dont need the original */
 
 	/* Initialize signal handler */
 	if (signal(SIGINT, sigint_handler) == SIG_ERR) perror("[ERROR] Couldn't catch SIGINT");
@@ -113,9 +113,17 @@ int main(int argc, char **argv){
 			continue;
 		}
 		if (strcmp(arg_vector[0], STATS_COMMAND) == 0 ) {
-			write_(pipe_fd, "HELLO\n", 7);
+			int term_id = atoi(arg_vector[1]);	
+			char write_buffer[STATS_BUFFER_SIZE];
+			pthread_mutex_lock_(&mutex);
+			sprintf(write_buffer, "__stats__ %d child %d total %d", term_id, child_count, total_execution_time);
+			pthread_mutex_unlock_(&mutex);
+			printf("\033[1;33m[NOTIFY]\033[0m Stats request from %d.\n", term_id);
+			write_(pipe_fd, write_buffer, STATS_BUFFER_SIZE);
+			sleep(1); /* wait for terminal to read */
 			continue;
 		}
+		printf("Reading %s\n", arg_vector[0]);
 
 		if (strcmp(arg_vector[0], EXIT_COMMAND) == 0 ) {
 
@@ -163,8 +171,9 @@ int main(int argc, char **argv){
 			/* set stdout of child process to be a new file*/
 			sprintf(child_stdout_pathname, "par-shell-out-%d.txt", getpid()); /* format filename */
 			new_stdout_fd = open_(child_stdout_pathname, O_CREAT|O_RDWR, S_IRUSR); /* create new file for stdout */
+			close(pipe_fd); /* since this is only used on parent lets close it on the child */
 			close_(STDOUT); /* close child default stdout */
-			dup_(new_stdout_fd); /* make suplicate of new_fd and assign it to lowest numbered unused file descriptor, in this case STDOUT wich has been closed */
+			dup_(new_stdout_fd); /* make duplicate of new_fd and assign it to lowest numbered unused file descriptor, in this case STDOUT wich has been closed */
 			close_(new_stdout_fd); /* close original filedescriptor */
 			if (execv(arg_vector[0], arg_vector) == -1) {
 				perror("[ERROR] executing program.");
@@ -294,8 +303,10 @@ void sigint_handler(int x){
 	fflush(stdout);
 	// KILL ALL PROCESSES
 	for (int i = 0; i < MAX_TERMINAL; i++)
-		if (open_terminals[i] != 0)
+		if (open_terminals[i] != 0) {
 			kill(open_terminals[i], SIGINT);
+			open_terminals[i] = 0;
+		}
 	unlink_(PIPENAME); /* TO REMOVE */
 	exit(EXIT_FAILURE); /* TO REMOVE */
 }
